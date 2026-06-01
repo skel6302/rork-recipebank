@@ -16,6 +16,9 @@ struct GrocerySyncView: View {
     @State private var selectedProvider: GroceryProvider? = nil
     @State private var showingShare = false
     @State private var isSending = false
+    @State private var resultMessage: String? = nil
+    @State private var showingResult = false
+    private var kroger = KrogerService.shared
 
     var body: some View {
         NavigationStack {
@@ -53,6 +56,11 @@ struct GrocerySyncView: View {
             }
             .sheet(isPresented: $showingShare) {
                 ShareSheet(text: GroceryService.plainText(for: items))
+            }
+            .alert("Kroger", isPresented: $showingResult) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(resultMessage ?? "")
             }
         }
         .tint(Theme.spice)
@@ -203,7 +211,44 @@ struct GrocerySyncView: View {
             return
         }
 
+        // Kroger's Cart API drops the items straight into the signed-in customer's
+        // cart. If credentials aren't configured yet, fall back to the deep link.
+        if provider == .kroger, kroger.isAvailable {
+            isSending = true
+            Task {
+                let outcome = await kroger.sendToCart(items)
+                isSending = false
+                handleKrogerOutcome(outcome, provider: provider)
+            }
+            return
+        }
+
         openInProviderApp(provider)
+    }
+
+    private func handleKrogerOutcome(_ outcome: KrogerSendOutcome, provider: GroceryProvider) {
+        switch outcome {
+        case let .success(added, total, unmatched):
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            var message = "Added \(added) of \(total) items to your Kroger cart."
+            if !unmatched.isEmpty {
+                message += "\n\nWe couldn't find: \(unmatched.joined(separator: ", "))."
+            }
+            resultMessage = message
+            showingResult = true
+        case .needsSignIn:
+            // User cancelled or the session expired — silently let them try again.
+            break
+        case .noMatches:
+            resultMessage = "We couldn't match any of these items to Kroger products. Opening Kroger search instead."
+            showingResult = true
+            openInProviderApp(provider)
+        case .notConfigured:
+            openInProviderApp(provider)
+        case let .failed(message):
+            resultMessage = message
+            showingResult = true
+        }
     }
 
     private func openInProviderApp(_ provider: GroceryProvider) {

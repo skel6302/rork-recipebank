@@ -47,7 +47,7 @@ enum GroceryProvider: String, CaseIterable, Identifiable {
         case .instacart: return "One tap — items added straight to your cart"
         case .amazonFresh: return "Fast grocery delivery with Prime"
         case .walmart: return "Pickup & delivery nationwide"
-        case .kroger: return "Order from your local Kroger"
+        case .kroger: return "Sign in once — items added straight to your cart"
         case .wholeFoods: return "Organic groceries via Amazon"
         }
     }
@@ -57,6 +57,7 @@ enum GroceryProvider: String, CaseIterable, Identifiable {
         switch self {
         case .amazonAlexa: return "Add to \(rawValue)"
         case .instacart: return "Add to Cart on Instacart"
+        case .kroger: return "Add to Cart at Kroger"
         default: return "Open \(rawValue)"
         }
     }
