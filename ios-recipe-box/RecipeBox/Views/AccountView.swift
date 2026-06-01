@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AuthenticationServices
 
 /// Account sheet showing the signed-in user, sync status, and sign-out.
 struct AccountView: View {
@@ -12,12 +13,17 @@ struct AccountView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        @Bindable var auth = auth
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    profileCard
-                    syncCard
-                    signOutButton
+                    if auth.user == nil {
+                        guestCard
+                    } else {
+                        profileCard
+                        syncCard
+                        signOutButton
+                    }
                 }
                 .padding(20)
             }
@@ -33,6 +39,71 @@ struct AccountView: View {
             }
         }
         .tint(Theme.spice)
+        .alert("Sign-in Error", isPresented: $auth.showError) {
+            Button("OK") { }
+        } message: {
+            Text(auth.errorMessage)
+        }
+    }
+
+    private var guestCard: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "icloud.fill")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 76, height: 76)
+                .background(Theme.warmGradient, in: .circle)
+
+            VStack(spacing: 6) {
+                Text("Back up your recipes")
+                    .font(.cookbookSerif(22, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                Text("Sign in to save your recipes to the cloud and sync them across all your devices.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.inkSoft)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 8)
+
+            VStack(spacing: 12) {
+                if auth.isSigningIn {
+                    ProgressView().padding(.bottom, 2)
+                }
+
+                SignInWithAppleButton(.signIn) { request in
+                    request.requestedScopes = [.email, .fullName]
+                } onCompletion: { _ in
+                    Task { await auth.signIn(provider: "apple") }
+                }
+                .signInWithAppleButtonStyle(.black)
+                .frame(height: 52)
+                .clipShape(.rect(cornerRadius: 14))
+                .disabled(auth.isSigningIn)
+
+                Button {
+                    Task { await auth.signIn(provider: "google") }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "globe")
+                            .font(.system(size: 17, weight: .semibold))
+                        Text("Sign in with Google")
+                            .font(.system(size: 17, weight: .semibold))
+                    }
+                    .foregroundStyle(Theme.ink)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(.white, in: .rect(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.ink.opacity(0.12), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .disabled(auth.isSigningIn)
+            }
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+        .background(Theme.paperRaised, in: .rect(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.ink.opacity(0.06), lineWidth: 1))
     }
 
     private var profileCard: some View {

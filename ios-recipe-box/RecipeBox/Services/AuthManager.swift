@@ -15,6 +15,11 @@ class AuthManager {
     var isSigningIn = false
     var showError = false
     var errorMessage = ""
+    /// True when the user chose to use the app without signing in.
+    var isGuest = UserDefaults.standard.bool(forKey: "RORK_GUEST_MODE")
+
+    /// Whether the app should show the main UI (signed in or browsing as guest).
+    var hasAccess: Bool { user != nil || isGuest }
 
     private let authURL = Config.EXPO_PUBLIC_RORK_AUTH_URL
     private let appKey = Config.EXPO_PUBLIC_RORK_APP_KEY
@@ -114,6 +119,13 @@ class AuthManager {
         if getRefreshToken() != nil {
             await refreshToken()
         }
+    }
+
+    /// Enter the app without an account. Recipes stay on this device until you sign in.
+    @MainActor
+    func continueAsGuest() {
+        isGuest = true
+        UserDefaults.standard.set(true, forKey: "RORK_GUEST_MODE")
     }
 
     @MainActor
@@ -275,6 +287,8 @@ class AuthManager {
             KeychainHelper.set("access_token", value: tokenResponse.access_token)
             KeychainHelper.set("refresh_token", value: tokenResponse.refresh_token)
 
+            isGuest = false
+            UserDefaults.standard.set(false, forKey: "RORK_GUEST_MODE")
             user = tokenResponse.user
         } catch {
             setError("Sign in failed: \(error.localizedDescription)")
@@ -319,6 +333,8 @@ class AuthManager {
         KeychainHelper.delete("access_token")
         KeychainHelper.delete("refresh_token")
         UserDefaults.standard.removeObject(forKey: "RORK_AUTH_REFRESH_TOKEN")
+        isGuest = false
+        UserDefaults.standard.set(false, forKey: "RORK_GUEST_MODE")
         user = nil
     }
 

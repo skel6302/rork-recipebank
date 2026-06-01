@@ -17,13 +17,14 @@ struct RootView: View {
         Group {
             if auth.isLoading {
                 loadingView
-            } else if auth.user == nil {
+            } else if !auth.hasAccess {
                 WelcomeView()
             } else {
                 ContentView()
             }
         }
         .animation(.easeInOut(duration: 0.25), value: auth.user?.id)
+        .animation(.easeInOut(duration: 0.25), value: auth.isGuest)
         .animation(.easeInOut(duration: 0.25), value: auth.isLoading)
         .onChange(of: auth.user?.id) { _, newValue in
             if newValue != nil {

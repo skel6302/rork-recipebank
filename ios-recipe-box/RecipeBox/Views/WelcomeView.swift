@@ -40,11 +40,23 @@ struct WelcomeView: View {
                 signInButtons
                     .padding(.horizontal, 28)
 
-                Text("Sign in to back up and sync your recipes securely.")
+                Button {
+                    auth.continueAsGuest()
+                } label: {
+                    Text("Continue without an account")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.inkSoft)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 8)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 10)
+
+                Text("Sign in to back up and sync across devices, or continue and add an account later.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.inkSoft.opacity(0.8))
                     .multilineTextAlignment(.center)
-                    .padding(.top, 16)
+                    .padding(.top, 4)
                     .padding(.bottom, 24)
                     .padding(.horizontal, 40)
             }
