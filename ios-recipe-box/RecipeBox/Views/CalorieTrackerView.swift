@@ -86,12 +86,12 @@ struct CalorieTrackerView: View {
                         if isDayClosed { closedBanner }
                         summaryCard
                         macrosCard
-                        waterCard
-                        activityCard
-                        weightCard
                         ForEach(MealType.allCases) { type in
                             mealSection(type)
                         }
+                        waterCard
+                        activityCard
+                        weightCard
                         doneTrackingButton
                     }
                     .padding(.horizontal, 16)
