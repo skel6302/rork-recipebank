@@ -413,6 +413,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = RecipeBank;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Recipe Box uses the camera to scan recipes and to photograph meals for calorie tracking.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Recipe Box reads your steps, active calories, exercise minutes, and sleep to round out your daily calorie picture.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Recipe Box can save health information you log, such as your weight.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Recipe Box accesses your photos to import recipes and analyze food for calorie tracking.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -450,6 +452,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = RecipeBank;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Recipe Box uses the camera to scan recipes and to photograph meals for calorie tracking.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Recipe Box reads your steps, active calories, exercise minutes, and sleep to round out your daily calorie picture.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Recipe Box can save health information you log, such as your weight.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Recipe Box accesses your photos to import recipes and analyze food for calorie tracking.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

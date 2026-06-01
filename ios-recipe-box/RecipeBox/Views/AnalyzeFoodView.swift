@@ -12,9 +12,13 @@ import PhotosUI
 struct AnalyzeFoodView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: \FoodEntry.loggedAt, order: .reverse) private var allEntries: [FoodEntry]
 
     /// Pre-fills the meal slot (e.g. breakfast) when opened from a section.
     var initialMealType: MealType = MealType.suggested()
+
+    /// The day the food should be logged to (supports back-dating). Defaults to now.
+    var logDate: Date = .now
 
     @State private var phase: Phase = .choosing
     @State private var photoItem: PhotosPickerItem?
@@ -36,6 +40,36 @@ struct AnalyzeFoodView: View {
 
     private var cameraAvailable: Bool {
         UIImagePickerController.isSourceTypeAvailable(.camera)
+    }
+
+    /// The most recently logged distinct foods for the current meal slot, used as
+    /// one-tap suggestions (e.g. your usual breakfast items).
+    private var suggestions: [FoodEntry] {
+        var seen = Set<String>()
+        var result: [FoodEntry] = []
+        for entry in allEntries where entry.mealType == mealType {
+            let key = entry.name.lowercased()
+            if seen.contains(key) { continue }
+            seen.insert(key)
+            result.append(entry)
+            if result.count >= 8 { break }
+        }
+        return result
+    }
+
+    /// Timestamp to stamp on new entries — keeps the current time but uses the
+    /// selected day so back-dated entries land on the right date.
+    private var entryTimestamp: Date {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(logDate) { return .now }
+        let now = Date()
+        let time = calendar.dateComponents([.hour, .minute, .second], from: now)
+        return calendar.date(
+            bySettingHour: time.hour ?? 12,
+            minute: time.minute ?? 0,
+            second: time.second ?? 0,
+            of: calendar.startOfDay(for: logDate)
+        ) ?? logDate
     }
 
     var body: some View {
@@ -84,6 +118,11 @@ struct AnalyzeFoodView: View {
             VStack(spacing: 22) {
                 hero
 
+                if !suggestions.isEmpty {
+                    suggestionsSection
+                        .padding(.horizontal, 20)
+                }
+
                 VStack(spacing: 14) {
                     if cameraAvailable {
                         choiceCard(
@@ -130,6 +169,47 @@ struct AnalyzeFoodView: View {
             .padding(.vertical, 12)
         }
         .sheet(isPresented: $showingDescribe) { describeSheet }
+    }
+
+    private var suggestionsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(mealType.tint)
+                Text("Recent in \(mealType.rawValue)")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+            }
+            VStack(spacing: 8) {
+                ForEach(suggestions) { entry in
+                    Button {
+                        quickAdd(entry)
+                    } label: {
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.name)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(Theme.ink)
+                                    .lineLimit(1)
+                                Text("\(entry.calories) cal · P \(Int(entry.protein.rounded())) C \(Int(entry.carbs.rounded())) F \(Int(entry.fat.rounded()))")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Theme.inkSoft)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 22))
+                                .foregroundStyle(mealType.tint)
+                        }
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 14)
+                        .background(Theme.paperRaised, in: .rect(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.ink.opacity(0.06), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
     }
 
     private var hero: some View {
@@ -541,9 +621,29 @@ struct AnalyzeFoodView: View {
             protein: analysis.totalProtein,
             carbs: analysis.totalCarbs,
             fat: analysis.totalFat,
-            loggedAt: .now,
+            loggedAt: entryTimestamp,
             wasAIEstimated: true,
             photoData: capturedImage?.jpegData(compressionQuality: 0.7)
+        )
+        modelContext.insert(entry)
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+        dismiss()
+    }
+
+    /// Re-logs a previously eaten food for this meal slot with one tap.
+    private func quickAdd(_ source: FoodEntry) {
+        let entry = FoodEntry(
+            name: source.name,
+            mealType: mealType,
+            servingDescription: source.servingDescription,
+            calories: source.calories,
+            protein: source.protein,
+            carbs: source.carbs,
+            fat: source.fat,
+            loggedAt: entryTimestamp,
+            wasAIEstimated: source.wasAIEstimated,
+            photoData: source.photoData
         )
         modelContext.insert(entry)
         let generator = UINotificationFeedbackGenerator()
