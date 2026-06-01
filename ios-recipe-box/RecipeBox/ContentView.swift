@@ -55,6 +55,11 @@ struct ContentView: View {
                     Label("Recipes", systemImage: "book.closed.fill")
                 }
 
+            MealPlannerView()
+                .tabItem {
+                    Label("Plan", systemImage: "calendar")
+                }
+
             CalorieTrackerView()
                 .tabItem {
                     Label("Calories", systemImage: "flame.fill")
@@ -71,5 +76,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Recipe.self, Ingredient.self, ShoppingItem.self, FoodEntry.self], inMemory: true)
+        .modelContainer(for: [Recipe.self, Ingredient.self, ShoppingItem.self, FoodEntry.self, PlannedMeal.self], inMemory: true)
 }

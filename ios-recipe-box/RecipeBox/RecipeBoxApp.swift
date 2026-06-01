@@ -27,6 +27,7 @@ struct RecipeBoxApp: App {
             FoodEntry.self,
             DailyLog.self,
             WeightEntry.self,
+            PlannedMeal.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

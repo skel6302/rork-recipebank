@@ -1,29 +1,33 @@
-# Sync recipes across devices with sign-in and cloud storage
+# Weekly meal planner with shopping-list integration
 
 ## What this adds
 
-To store recipes across multiple devices, each device needs to know it's *you*. That means adding a quick sign-in, then keeping your recipes saved in the cloud so they appear everywhere you log in.
+An AnyList-style weekly meal planner so you can plan what you'll cook each day and
+turn that plan into a shopping list in one tap.
 
 ## Features
 
-- **Sign in with Apple or Google** — a clean welcome screen the first time you open the app. One tap and you're in.
-- **Automatic cloud backup** — every recipe you add, edit, or delete is saved to your private cloud account.
-- **Cross-device sync** — sign in on another iPhone or iPad and all your recipes appear automatically, including photos.
-- **Works offline** — recipes stay on the device and sync up whenever you're back online.
-- **Account menu** — see who you're signed in as and sign out if you want.
+- **Weekly planner** — a "Plan" tab showing all seven days of the week, each with
+  Breakfast, Lunch, and Dinner slots.
+- **Assign recipes** — tap any slot to pick a recipe from your collection; add more
+  than one recipe to a slot if needed.
+- **Browse weeks** — move forward or back a week; today's day is highlighted.
+- **Tap to open** — tap a planned recipe to jump to its full detail page.
+- **Send week to shopping list** — one button adds every ingredient from the week's
+  planned recipes to your shopping list, merging duplicates.
+- **Clear week** — remove the whole week's plan at once.
 
 ## Design
 
-- **Welcome screen**: warm, on-brand look matching your cookbook style — the RecipeBank wordmark, a short tagline like "Your recipes, on every device," and the two sign-in buttons.
-- **Sync indicator**: a small, subtle status in the recipe screen header showing when recipes are syncing or are up to date.
-- **Account access**: reached from a profile icon in the recipe screen toolbar.
+- Matches the warm cookbook aesthetic: paper background, spice accents, serif headings.
+- Each day is a rounded card; today gets a spice-colored border and a "TODAY" badge.
+- Empty meal slots show a dashed "Add a recipe" placeholder; filled slots show a recipe
+  thumbnail, title, ingredient count, and cook time.
+- A floating warm-gradient button sends the week to the shopping list, turning green
+  with a checkmark on success.
 
 ## Screens
 
-- **Welcome / Sign-in screen** — shown only when you're not signed in.
-- **Recipes screen** — unchanged, but now backed by the cloud with a sync status and profile button.
-- **Account sheet** — shows your name/email and a Sign Out button.
-
-## Note
-
-Your existing recipes already on the device will be uploaded to your account the first time you sign in, so nothing is lost.
+- **Plan tab** — the weekly planner (new).
+- **Recipe picker sheet** — searchable list of your recipes when filling a slot.
+- **Shopping tab** — unchanged, now also fed by the weekly plan.
