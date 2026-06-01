@@ -31,8 +31,15 @@ nonisolated enum AIRecipeParser {
     "4 PERSON"); pick the FIRST/smaller serving column for the quantity. Do NOT duplicate items.
     - Combine quantity + unit into the "quantity" field (e.g. "1 tbsp", "¼ cup", "10 oz"). \
     Leave quantity empty if none is shown. Never put the quantity inside the name.
-    - For steps, write clear ordered instructions. If the card has no visible steps \
-    (only ingredients), return an empty steps array — do not invent steps.
+    - COOKING INSTRUCTIONS ARE CRITICAL. Meal-kit cards (HelloFresh, Blue Apron, etc.) lay \
+    out the method as a grid of NUMBERED panels, each with a small photo above a paragraph of \
+    text (often labeled 1, 2, 3, 4, 5, 6). Read EVERY numbered panel, in order, and turn each \
+    one into a step. The instructions are usually on a separate side/half of the card from the \
+    ingredients — do not stop after the ingredient list. Transcribe the full instruction text \
+    for each step (cooking times, temperatures, and quantities included); do not just write the \
+    step's heading or title. Preserve the original numbered order.
+    - Only return an empty steps array if the photo genuinely shows NO cooking instructions at \
+    all (e.g. an ingredients-only card). Never invent steps that aren't shown.
     - Title: the dish name. If unclear, use a short descriptive title.
 
     Respond with ONLY a JSON object (no markdown, no code fences) in exactly this shape:
@@ -73,7 +80,7 @@ nonisolated enum AIRecipeParser {
             throw ParseError.imageTooLarge
         }
         let content: [[String: Any]] = [
-            ["type": "text", "text": "Read this recipe and return the structured JSON."],
+            ["type": "text", "text": "Read this recipe and return the structured JSON. Include EVERY numbered cooking instruction/step you can see, in order, with the full text — not just the ingredients."],
             ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(base64)"]],
         ]
         let parsed = try await request(userContent: content)
