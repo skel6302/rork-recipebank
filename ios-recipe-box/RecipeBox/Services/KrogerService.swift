@@ -5,6 +5,7 @@
 
 import SwiftUI
 import AuthenticationServices
+import Supabase
 
 // MARK: - Wire models
 
@@ -59,8 +60,11 @@ final class KrogerService {
     var isConnected: Bool = KeychainHelper.get("kroger_refresh_token") != nil
     var isSending = false
 
-    private let clientId = Config.EXPO_PUBLIC_KROGER_CLIENT_ID
-    private let redirectURI = Config.EXPO_PUBLIC_KROGER_REDIRECT_URI
+    // Read from the generated config dictionary so this compiles whether or not
+    // the Kroger env vars have been provisioned yet. Once they're added, the
+    // values flow through automatically.
+    private let clientId = Config.allValues["EXPO_PUBLIC_KROGER_CLIENT_ID"] ?? ""
+    private let redirectURI = Config.allValues["EXPO_PUBLIC_KROGER_REDIRECT_URI"] ?? ""
     private var webAuthSession: ASWebAuthenticationSession?
 
     /// True only when the integration has the credentials it needs to run.

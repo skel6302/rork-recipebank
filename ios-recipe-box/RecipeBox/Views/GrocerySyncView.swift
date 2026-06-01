@@ -20,6 +20,10 @@ struct GrocerySyncView: View {
     @State private var showingResult = false
     private var kroger = KrogerService.shared
 
+    init(items: [ShoppingItem]) {
+        self.items = items
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
