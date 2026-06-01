@@ -4,7 +4,6 @@
 //
 
 import Foundation
-import Supabase
 
 nonisolated struct InstacartLineItem: Encodable, Sendable {
     let name: String
@@ -39,9 +38,9 @@ enum GroceryCartService {
         guard !lineItems.isEmpty else { return nil }
 
         do {
-            let response: InstacartCartResponse = try await supabase.functions.invoke(
+            let response: InstacartCartResponse = try await Supabase.invokeFunction(
                 "instacart-cart",
-                options: .init(body: InstacartCartRequest(title: title, items: lineItems))
+                body: InstacartCartRequest(title: title, items: lineItems)
             )
             return URL(string: response.url)
         } catch {

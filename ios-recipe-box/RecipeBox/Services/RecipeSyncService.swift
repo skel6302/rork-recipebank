@@ -5,7 +5,6 @@
 
 import Foundation
 import SwiftData
-import Supabase
 
 // MARK: - Cloud DTOs
 
@@ -277,11 +276,7 @@ final class RecipeSyncService {
             try await ensureProfile(user)
 
             // 1. Fetch the full remote set.
-            let remote: [RemoteRecipe] = try await supabase
-                .from("recipes")
-                .select()
-                .execute()
-                .value
+            let remote: [RemoteRecipe] = try await Supabase.select("recipes")
             let remoteByID = Dictionary(remote.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
 
             // 2. Load local recipes and ensure each has a stable remote id.
@@ -321,9 +316,7 @@ final class RecipeSyncService {
                 }
             }
 
-            if !toUpsert.isEmpty {
-                try await supabase.from("recipes").upsert(toUpsert).execute()
-            }
+            try await Supabase.upsert("recipes", values: toUpsert)
 
             // 5. Sync the shopping list and weekly meal plan too.
             try await syncShoppingItems(user: user, context: context)
@@ -345,11 +338,12 @@ final class RecipeSyncService {
               let remoteID,
               let uuid = UUID(uuidString: remoteID) else { return }
         do {
-            try await supabase
-                .from("recipes")
-                .update(RecipeTombstone(deleted: true, updatedAt: Date()))
-                .eq("id", value: uuid.uuidString)
-                .execute()
+            try await Supabase.update(
+                "recipes",
+                values: RecipeTombstone(deleted: true, updatedAt: Date()),
+                eqColumn: "id",
+                eqValue: uuid.uuidString
+            )
         } catch {
             print("RecipeSync delete failed: \(error)")
         }
@@ -359,11 +353,7 @@ final class RecipeSyncService {
 
     @MainActor
     private func syncShoppingItems(user: AuthManager.User, context: ModelContext) async throws {
-        let remote: [RemoteShoppingItem] = try await supabase
-            .from("shopping_items")
-            .select()
-            .execute()
-            .value
+        let remote: [RemoteShoppingItem] = try await Supabase.select("shopping_items")
         let remoteByID = Dictionary(remote.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
 
         var locals = try context.fetch(FetchDescriptor<ShoppingItem>())
@@ -412,9 +402,7 @@ final class RecipeSyncService {
                 )
             }
         }
-        if !toUpsert.isEmpty {
-            try await supabase.from("shopping_items").upsert(toUpsert).execute()
-        }
+        try await Supabase.upsert("shopping_items", values: toUpsert)
     }
 
     private func apply(_ row: RemoteShoppingItem, to item: ShoppingItem) {
@@ -456,11 +444,7 @@ final class RecipeSyncService {
         context: ModelContext,
         localRecipesByRemoteID: [UUID: Recipe]
     ) async throws {
-        let remote: [RemotePlannedMeal] = try await supabase
-            .from("planned_meals")
-            .select()
-            .execute()
-            .value
+        let remote: [RemotePlannedMeal] = try await Supabase.select("planned_meals")
         let remoteByID = Dictionary(remote.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
 
         var locals = try context.fetch(FetchDescriptor<PlannedMeal>())
@@ -508,9 +492,7 @@ final class RecipeSyncService {
                 )
             }
         }
-        if !toUpsert.isEmpty {
-            try await supabase.from("planned_meals").upsert(toUpsert).execute()
-        }
+        try await Supabase.upsert("planned_meals", values: toUpsert)
     }
 
     private func apply(_ row: RemotePlannedMeal, to meal: PlannedMeal, recipesByRemoteID: [UUID: Recipe]) {
@@ -547,13 +529,14 @@ final class RecipeSyncService {
 
     private func ensureProfile(_ user: AuthManager.User) async throws {
         guard !didUpsertProfile else { return }
-        try await supabase.from("profiles").upsert(
-            ProfileUpsert(
+        try await Supabase.upsert(
+            "profiles",
+            value: ProfileUpsert(
                 id: user.id,
                 email: user.email,
                 name: user.name ?? ""
             )
-        ).execute()
+        )
         didUpsertProfile = true
     }
 

@@ -5,7 +5,6 @@
 
 import SwiftUI
 import AuthenticationServices
-import Supabase
 
 // MARK: - Wire models
 
@@ -134,15 +133,15 @@ final class KrogerService {
     }
 
     private func exchange(code: String) async throws {
-        let result: KrogerTokenResult = try await supabase.functions.invoke(
+        let result: KrogerTokenResult = try await Supabase.invokeFunction(
             "kroger-token",
-            options: .init(body: KrogerTokenRequest(
+            body: KrogerTokenRequest(
                 grantType: "authorization_code",
                 code: code,
                 redirectUri: redirectURI,
                 refreshToken: nil,
                 clientId: clientId
-            ))
+            )
         )
         store(result)
     }
@@ -158,15 +157,15 @@ final class KrogerService {
 
         guard let refresh = KeychainHelper.get("kroger_refresh_token") else { return nil }
         do {
-            let result: KrogerTokenResult = try await supabase.functions.invoke(
+            let result: KrogerTokenResult = try await Supabase.invokeFunction(
                 "kroger-token",
-                options: .init(body: KrogerTokenRequest(
+                body: KrogerTokenRequest(
                     grantType: "refresh_token",
                     code: nil,
                     redirectUri: nil,
                     refreshToken: refresh,
                     clientId: clientId
-                ))
+                )
             )
             store(result)
             return result.accessToken
@@ -217,9 +216,9 @@ final class KrogerService {
         defer { isSending = false }
 
         do {
-            let result: KrogerCartResult = try await supabase.functions.invoke(
+            let result: KrogerCartResult = try await Supabase.invokeFunction(
                 "kroger-cart",
-                options: .init(body: KrogerCartRequest(accessToken: token, items: lineItems, clientId: clientId))
+                body: KrogerCartRequest(accessToken: token, items: lineItems, clientId: clientId)
             )
             return .success(added: result.added, total: result.total, unmatched: result.unmatched)
         } catch {
