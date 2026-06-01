@@ -10,6 +10,15 @@ import SwiftData
 
 @main
 struct RecipeBoxApp: App {
+    @State private var auth = AuthManager()
+    @State private var sync: RecipeSyncService
+
+    init() {
+        let auth = AuthManager()
+        _auth = State(initialValue: auth)
+        _sync = State(initialValue: RecipeSyncService(auth: auth))
+    }
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Recipe.self,
@@ -28,9 +37,12 @@ struct RecipeBoxApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .environment(auth)
+                .environment(sync)
                 .onAppear {
                     SampleData.seedIfNeeded(sharedModelContainer.mainContext)
+                    sync.attach(sharedModelContainer)
                 }
         }
         .modelContainer(sharedModelContainer)

@@ -9,6 +9,7 @@ import SwiftData
 /// The main recipe browser with search, category filtering, and favorites.
 struct RecipeListView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(RecipeSyncService.self) private var sync
     @Query(sort: \Recipe.createdAt, order: .reverse) private var recipes: [Recipe]
 
     @State private var searchText: String = ""
@@ -18,6 +19,7 @@ struct RecipeListView: View {
     @State private var showingScanner: Bool = false
     @State private var scanResult: ScannedRecipe?
     @State private var recipeToDelete: Recipe?
+    @State private var showingAccount: Bool = false
 
     private let columns = [
         GridItem(.flexible(), spacing: 14),
@@ -71,6 +73,14 @@ struct RecipeListView: View {
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $searchText, prompt: "Search recipes & ingredients")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingAccount = true
+                    } label: {
+                        Image(systemName: "person.crop.circle")
+                            .foregroundStyle(Theme.spice)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         withAnimation(.snappy) { showingFavoritesOnly.toggle() }
@@ -110,6 +120,12 @@ struct RecipeListView: View {
             .sheet(item: $scanResult) { result in
                 RecipeEditView(recipe: nil, prefill: result)
             }
+            .sheet(isPresented: $showingAccount) {
+                AccountView()
+            }
+            .refreshable {
+                await sync.syncNow()
+            }
             .confirmationDialog(
                 "Delete this recipe?",
                 isPresented: Binding(
@@ -120,8 +136,10 @@ struct RecipeListView: View {
                 presenting: recipeToDelete
             ) { recipe in
                 Button("Delete \(recipe.title)", role: .destructive) {
+                    let remoteID = recipe.remoteID
                     modelContext.delete(recipe)
                     try? modelContext.save()
+                    Task { await sync.deleteRemote(remoteID: remoteID) }
                     let generator = UINotificationFeedbackGenerator()
                     generator.notificationOccurred(.success)
                     recipeToDelete = nil
@@ -141,9 +159,46 @@ struct RecipeListView: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(height: 44)
             Spacer()
+            syncBadge
         }
         .padding(.horizontal, 16)
         .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private var syncBadge: some View {
+        switch sync.state {
+        case .syncing:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small).tint(Theme.spice)
+                Text("Syncing")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.inkSoft)
+            }
+        case .synced:
+            HStack(spacing: 5) {
+                Image(systemName: "checkmark.icloud.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Synced")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundStyle(Theme.sage)
+        case .error:
+            Button {
+                Task { await sync.syncNow() }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "exclamationmark.icloud.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Retry")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundStyle(Theme.spice)
+            }
+            .buttonStyle(.plain)
+        case .idle:
+            EmptyView()
+        }
     }
 
     private var headerStats: some View {

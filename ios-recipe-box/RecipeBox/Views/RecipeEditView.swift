@@ -11,6 +11,7 @@ import PhotosUI
 struct RecipeEditView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(RecipeSyncService.self) private var sync
 
     let recipe: Recipe?
     /// Optional scanned draft used to pre-fill the form for a new recipe.
@@ -257,6 +258,7 @@ struct RecipeEditView: View {
             recipe.steps = cleanSteps
             recipe.originalPhotoData = originalPhotoData
             recipe.photoData = photoData
+            recipe.touch()
         } else {
             let newRecipe = Recipe(
                 title: title,
@@ -275,6 +277,7 @@ struct RecipeEditView: View {
             modelContext.insert(newRecipe)
         }
         try? modelContext.save()
+        Task { await sync.syncNow() }
         dismiss()
     }
 }

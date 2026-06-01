@@ -10,6 +10,7 @@ import SwiftData
 struct RecipeDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(RecipeSyncService.self) private var sync
     @Bindable var recipe: Recipe
 
     @State private var showingEdit = false
@@ -42,6 +43,9 @@ struct RecipeDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     withAnimation(.snappy) { recipe.isFavorite.toggle() }
+                    recipe.touch()
+                    try? modelContext.save()
+                    Task { await sync.syncNow() }
                 } label: {
                     Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
                         .foregroundStyle(Theme.spice)
@@ -167,6 +171,9 @@ struct RecipeDetailView: View {
             }
             StarRating(rating: recipe.rating, size: 16, editable: true) { newValue in
                 recipe.rating = newValue
+                recipe.touch()
+                try? modelContext.save()
+                Task { await sync.syncNow() }
             }
             .padding(.top, 2)
         }
@@ -345,8 +352,10 @@ struct RecipeDetailView: View {
     private func deleteRecipe() {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
+        let remoteID = recipe.remoteID
         modelContext.delete(recipe)
         try? modelContext.save()
+        Task { await sync.deleteRemote(remoteID: remoteID) }
         dismiss()
     }
 

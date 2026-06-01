@@ -34,6 +34,15 @@ final class Recipe {
     /// Whether this recipe was created by scanning a physical source.
     var wasScanned: Bool
 
+    /// Stable cross-device identifier used to match this recipe with its cloud
+    /// row. Assigned lazily (nil until first sync) so SwiftData migrations of
+    /// existing recipes don't collide on a shared default value.
+    var remoteID: String?
+
+    /// Last time this recipe was modified locally. Used for last-write-wins
+    /// conflict resolution when syncing with the cloud.
+    var updatedAt: Date = Date()
+
     /// Ingredients stored in display order.
     @Relationship(deleteRule: .cascade)
     var ingredients: [Ingredient]
@@ -57,7 +66,9 @@ final class Recipe {
         createdAt: Date = .now,
         originalPhotoData: Data? = nil,
         photoData: Data? = nil,
-        wasScanned: Bool = false
+        wasScanned: Bool = false,
+        remoteID: String? = nil,
+        updatedAt: Date = .now
     ) {
         self.title = title
         self.summary = summary
@@ -75,6 +86,13 @@ final class Recipe {
         self.originalPhotoData = originalPhotoData
         self.photoData = photoData
         self.wasScanned = wasScanned
+        self.remoteID = remoteID
+        self.updatedAt = updatedAt
+    }
+
+    /// Marks the recipe as freshly modified so the next sync pushes it to the cloud.
+    func touch() {
+        updatedAt = Date()
     }
 
     var category: RecipeCategory {
