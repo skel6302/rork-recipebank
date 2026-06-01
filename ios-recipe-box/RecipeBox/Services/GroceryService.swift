@@ -44,11 +44,20 @@ enum GroceryProvider: String, CaseIterable, Identifiable {
     var tagline: String {
         switch self {
         case .amazonAlexa: return "Add items to your Alexa shopping list"
-        case .instacart: return "Same-day delivery from local stores"
+        case .instacart: return "One tap — items added straight to your cart"
         case .amazonFresh: return "Fast grocery delivery with Prime"
         case .walmart: return "Pickup & delivery nationwide"
         case .kroger: return "Order from your local Kroger"
         case .wholeFoods: return "Organic groceries via Amazon"
+        }
+    }
+
+    /// The verb shown on the send button for this destination.
+    var actionLabel: String {
+        switch self {
+        case .amazonAlexa: return "Add to \(rawValue)"
+        case .instacart: return "Add to Cart on Instacart"
+        default: return "Open \(rawValue)"
         }
     }
 

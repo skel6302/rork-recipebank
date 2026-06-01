@@ -15,6 +15,7 @@ struct GrocerySyncView: View {
 
     @State private var selectedProvider: GroceryProvider? = nil
     @State private var showingShare = false
+    @State private var isSending = false
 
     var body: some View {
         NavigationStack {
@@ -150,9 +151,13 @@ struct GrocerySyncView: View {
             sendToProvider()
         } label: {
             HStack(spacing: 10) {
-                if let provider = selectedProvider {
+                if isSending {
+                    ProgressView()
+                        .tint(.white)
+                    Text("Building your cart…")
+                } else if let provider = selectedProvider {
                     Image(systemName: provider.symbol)
-                    Text(provider.isListSync ? "Add to \(provider.rawValue)" : "Open \(provider.rawValue)")
+                    Text(provider.actionLabel)
                 } else {
                     Text("Select a service")
                 }
@@ -170,7 +175,7 @@ struct GrocerySyncView: View {
             .shadow(color: (selectedProvider?.tint ?? .clear).opacity(0.35), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
-        .disabled(selectedProvider == nil)
+        .disabled(selectedProvider == nil || isSending)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(.ultraThinMaterial)
@@ -178,6 +183,30 @@ struct GrocerySyncView: View {
 
     private func sendToProvider() {
         guard let provider = selectedProvider else { return }
+
+        // Instacart's Developer Platform builds a real cart the user can check out —
+        // the items are pre-loaded, not just searched. Fall back to the deep link if
+        // it isn't configured or the call fails.
+        if provider == .instacart {
+            isSending = true
+            Task {
+                let cartURL = await GroceryCartService.instacartCartURL(for: items)
+                isSending = false
+                if let cartURL {
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+                    openURL(cartURL)
+                } else {
+                    openInProviderApp(provider)
+                }
+            }
+            return
+        }
+
+        openInProviderApp(provider)
+    }
+
+    private func openInProviderApp(_ provider: GroceryProvider) {
         // Copy the list so users can paste any items the destination can't pre-fill.
         UIPasteboard.general.string = provider.isListSync
             ? GroceryService.listLines(for: items)

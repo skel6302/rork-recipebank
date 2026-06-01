@@ -28,13 +28,20 @@ final class PlannedMeal {
 
     var createdAt: Date
 
+    /// Stable cloud identifier, assigned on first sync so the slot follows the user across devices.
+    var remoteID: String?
+    /// Last local edit time, used for last-write-wins conflict resolution during sync.
+    var updatedAt: Date = Date()
+
     init(
         dayStart: Date,
         mealType: MealType,
         sortIndex: Int = 0,
         recipe: Recipe? = nil,
         customTitle: String? = nil,
-        createdAt: Date = .now
+        createdAt: Date = .now,
+        remoteID: String? = nil,
+        updatedAt: Date = .now
     ) {
         self.dayStart = Calendar.current.startOfDay(for: dayStart)
         self.mealTypeRaw = mealType.rawValue
@@ -42,6 +49,8 @@ final class PlannedMeal {
         self.recipe = recipe
         self.customTitle = customTitle
         self.createdAt = createdAt
+        self.remoteID = remoteID
+        self.updatedAt = updatedAt
     }
 
     var mealType: MealType {

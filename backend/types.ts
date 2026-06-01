@@ -18,6 +18,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      planned_meals: {
+        Row: {
+          created_at: string
+          custom_title: string | null
+          day_start: string
+          deleted: boolean
+          id: string
+          meal_type: string
+          recipe_id: string | null
+          sort_index: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_title?: string | null
+          day_start: string
+          deleted?: boolean
+          id?: string
+          meal_type?: string
+          recipe_id?: string | null
+          sort_index?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_title?: string | null
+          day_start?: string
+          deleted?: boolean
+          id?: string
+          meal_type?: string
+          recipe_id?: string | null
+          sort_index?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planned_meals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -112,6 +159,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "recipes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_items: {
+        Row: {
+          added_at: string
+          aisle: string
+          deleted: boolean
+          id: string
+          is_checked: boolean
+          name: string
+          quantity: string
+          source_recipe_title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          aisle?: string
+          deleted?: boolean
+          id?: string
+          is_checked?: boolean
+          name?: string
+          quantity?: string
+          source_recipe_title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          aisle?: string
+          deleted?: boolean
+          id?: string
+          is_checked?: boolean
+          name?: string
+          quantity?: string
+          source_recipe_title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_items_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

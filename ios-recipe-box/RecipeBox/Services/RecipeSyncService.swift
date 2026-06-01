@@ -128,6 +128,110 @@ nonisolated struct RecipeTombstone: Encodable, Sendable {
     }
 }
 
+// MARK: - Shopping item DTOs
+
+nonisolated struct RemoteShoppingItem: Codable, Sendable {
+    let id: UUID
+    let name: String
+    let quantity: String
+    let aisle: String
+    let isChecked: Bool
+    let sourceRecipeTitle: String?
+    let addedAt: Date
+    let deleted: Bool
+    let updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case quantity
+        case aisle
+        case isChecked = "is_checked"
+        case sourceRecipeTitle = "source_recipe_title"
+        case addedAt = "added_at"
+        case deleted
+        case updatedAt = "updated_at"
+    }
+}
+
+nonisolated struct RemoteShoppingItemUpsert: Encodable, Sendable {
+    let id: UUID
+    let userId: String
+    let name: String
+    let quantity: String
+    let aisle: String
+    let isChecked: Bool
+    let sourceRecipeTitle: String?
+    let addedAt: Date
+    let deleted: Bool
+    let updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case name
+        case quantity
+        case aisle
+        case isChecked = "is_checked"
+        case sourceRecipeTitle = "source_recipe_title"
+        case addedAt = "added_at"
+        case deleted
+        case updatedAt = "updated_at"
+    }
+}
+
+// MARK: - Planned meal DTOs
+
+nonisolated struct RemotePlannedMeal: Codable, Sendable {
+    let id: UUID
+    let dayStart: Date
+    let mealType: String
+    let sortIndex: Int
+    let recipeId: UUID?
+    let customTitle: String?
+    let createdAt: Date
+    let deleted: Bool
+    let updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case dayStart = "day_start"
+        case mealType = "meal_type"
+        case sortIndex = "sort_index"
+        case recipeId = "recipe_id"
+        case customTitle = "custom_title"
+        case createdAt = "created_at"
+        case deleted
+        case updatedAt = "updated_at"
+    }
+}
+
+nonisolated struct RemotePlannedMealUpsert: Encodable, Sendable {
+    let id: UUID
+    let userId: String
+    let dayStart: Date
+    let mealType: String
+    let sortIndex: Int
+    let recipeId: UUID?
+    let customTitle: String?
+    let createdAt: Date
+    let deleted: Bool
+    let updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case dayStart = "day_start"
+        case mealType = "meal_type"
+        case sortIndex = "sort_index"
+        case recipeId = "recipe_id"
+        case customTitle = "custom_title"
+        case createdAt = "created_at"
+        case deleted
+        case updatedAt = "updated_at"
+    }
+}
+
 // MARK: - Sync Service
 
 /// Two-way syncs the local SwiftData recipe store with the Supabase cloud so
@@ -221,6 +325,10 @@ final class RecipeSyncService {
                 try await supabase.from("recipes").upsert(toUpsert).execute()
             }
 
+            // 5. Sync the shopping list and weekly meal plan too.
+            try await syncShoppingItems(user: user, context: context)
+            try await syncPlannedMeals(user: user, context: context, localRecipesByRemoteID: localByID)
+
             try context.save()
             lastSyncedAt = Date()
             state = .synced
@@ -245,6 +353,194 @@ final class RecipeSyncService {
         } catch {
             print("RecipeSync delete failed: \(error)")
         }
+    }
+
+    // MARK: - Shopping list sync
+
+    @MainActor
+    private func syncShoppingItems(user: AuthManager.User, context: ModelContext) async throws {
+        let remote: [RemoteShoppingItem] = try await supabase
+            .from("shopping_items")
+            .select()
+            .execute()
+            .value
+        let remoteByID = Dictionary(remote.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+
+        var locals = try context.fetch(FetchDescriptor<ShoppingItem>())
+        var localByID: [UUID: ShoppingItem] = [:]
+        for item in locals {
+            localByID[ensureRemoteID(item)] = item
+        }
+
+        // Pull remote changes onto the local store.
+        for row in remote {
+            if let local = localByID[row.id] {
+                if row.deleted {
+                    context.delete(local)
+                    localByID[row.id] = nil
+                } else if row.updatedAt > local.updatedAt {
+                    apply(row, to: local)
+                }
+            } else if !row.deleted {
+                let new = makeShoppingItem(from: row)
+                context.insert(new)
+                localByID[row.id] = new
+            }
+        }
+
+        // Push locals that are new or newer.
+        locals = try context.fetch(FetchDescriptor<ShoppingItem>())
+        var toUpsert: [RemoteShoppingItemUpsert] = []
+        for item in locals {
+            let uuid = ensureRemoteID(item)
+            let remoteRow = remoteByID[uuid]
+            let isNewer = remoteRow == nil || (!remoteRow!.deleted && item.updatedAt > remoteRow!.updatedAt)
+            if isNewer {
+                toUpsert.append(
+                    RemoteShoppingItemUpsert(
+                        id: uuid,
+                        userId: user.id,
+                        name: item.name,
+                        quantity: item.quantity,
+                        aisle: item.aisleRaw,
+                        isChecked: item.isChecked,
+                        sourceRecipeTitle: item.sourceRecipeTitle,
+                        addedAt: item.addedAt,
+                        deleted: false,
+                        updatedAt: item.updatedAt
+                    )
+                )
+            }
+        }
+        if !toUpsert.isEmpty {
+            try await supabase.from("shopping_items").upsert(toUpsert).execute()
+        }
+    }
+
+    private func apply(_ row: RemoteShoppingItem, to item: ShoppingItem) {
+        item.name = row.name
+        item.quantity = row.quantity
+        item.aisleRaw = row.aisle
+        item.isChecked = row.isChecked
+        item.sourceRecipeTitle = row.sourceRecipeTitle
+        item.addedAt = row.addedAt
+        item.updatedAt = row.updatedAt
+    }
+
+    private func makeShoppingItem(from row: RemoteShoppingItem) -> ShoppingItem {
+        ShoppingItem(
+            name: row.name,
+            quantity: row.quantity,
+            aisle: GroceryAisle(rawValue: row.aisle) ?? .other,
+            isChecked: row.isChecked,
+            sourceRecipeTitle: row.sourceRecipeTitle,
+            addedAt: row.addedAt,
+            remoteID: row.id.uuidString,
+            updatedAt: row.updatedAt
+        )
+    }
+
+    @discardableResult
+    private func ensureRemoteID(_ item: ShoppingItem) -> UUID {
+        if let id = item.remoteID, let uuid = UUID(uuidString: id) { return uuid }
+        let uuid = UUID()
+        item.remoteID = uuid.uuidString
+        return uuid
+    }
+
+    // MARK: - Meal plan sync
+
+    @MainActor
+    private func syncPlannedMeals(
+        user: AuthManager.User,
+        context: ModelContext,
+        localRecipesByRemoteID: [UUID: Recipe]
+    ) async throws {
+        let remote: [RemotePlannedMeal] = try await supabase
+            .from("planned_meals")
+            .select()
+            .execute()
+            .value
+        let remoteByID = Dictionary(remote.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+
+        var locals = try context.fetch(FetchDescriptor<PlannedMeal>())
+        var localByID: [UUID: PlannedMeal] = [:]
+        for meal in locals {
+            localByID[ensureRemoteID(meal)] = meal
+        }
+
+        for row in remote {
+            if let local = localByID[row.id] {
+                if row.deleted {
+                    context.delete(local)
+                    localByID[row.id] = nil
+                } else if row.updatedAt > local.updatedAt {
+                    apply(row, to: local, recipesByRemoteID: localRecipesByRemoteID)
+                }
+            } else if !row.deleted {
+                let new = makePlannedMeal(from: row, recipesByRemoteID: localRecipesByRemoteID)
+                context.insert(new)
+                localByID[row.id] = new
+            }
+        }
+
+        locals = try context.fetch(FetchDescriptor<PlannedMeal>())
+        var toUpsert: [RemotePlannedMealUpsert] = []
+        for meal in locals {
+            let uuid = ensureRemoteID(meal)
+            let remoteRow = remoteByID[uuid]
+            let isNewer = remoteRow == nil || (!remoteRow!.deleted && meal.updatedAt > remoteRow!.updatedAt)
+            if isNewer {
+                let recipeUUID = meal.recipe?.remoteID.flatMap { UUID(uuidString: $0) }
+                toUpsert.append(
+                    RemotePlannedMealUpsert(
+                        id: uuid,
+                        userId: user.id,
+                        dayStart: meal.dayStart,
+                        mealType: meal.mealTypeRaw,
+                        sortIndex: meal.sortIndex,
+                        recipeId: recipeUUID,
+                        customTitle: meal.customTitle,
+                        createdAt: meal.createdAt,
+                        deleted: false,
+                        updatedAt: meal.updatedAt
+                    )
+                )
+            }
+        }
+        if !toUpsert.isEmpty {
+            try await supabase.from("planned_meals").upsert(toUpsert).execute()
+        }
+    }
+
+    private func apply(_ row: RemotePlannedMeal, to meal: PlannedMeal, recipesByRemoteID: [UUID: Recipe]) {
+        meal.dayStart = row.dayStart
+        meal.mealTypeRaw = row.mealType
+        meal.sortIndex = row.sortIndex
+        meal.customTitle = row.customTitle
+        meal.recipe = row.recipeId.flatMap { recipesByRemoteID[$0] }
+        meal.updatedAt = row.updatedAt
+    }
+
+    private func makePlannedMeal(from row: RemotePlannedMeal, recipesByRemoteID: [UUID: Recipe]) -> PlannedMeal {
+        PlannedMeal(
+            dayStart: row.dayStart,
+            mealType: MealType(rawValue: row.mealType) ?? .dinner,
+            sortIndex: row.sortIndex,
+            recipe: row.recipeId.flatMap { recipesByRemoteID[$0] },
+            customTitle: row.customTitle,
+            createdAt: row.createdAt,
+            remoteID: row.id.uuidString,
+            updatedAt: row.updatedAt
+        )
+    }
+
+    @discardableResult
+    private func ensureRemoteID(_ meal: PlannedMeal) -> UUID {
+        if let id = meal.remoteID, let uuid = UUID(uuidString: id) { return uuid }
+        let uuid = UUID()
+        meal.remoteID = uuid.uuidString
+        return uuid
     }
 
     // MARK: - Helpers
