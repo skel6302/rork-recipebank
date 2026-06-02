@@ -30,7 +30,10 @@ struct AnalyzeFoodView: View {
     @State private var capturedImage: UIImage?
     @State private var analysis: MealAnalysis?
     @State private var mealType: MealType = MealType.suggested()
+    @State private var portion: Double = 1.0
     @State private var errorMessage: String?
+
+    private let portionPresets: [Double] = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
 
     private enum Phase: Equatable {
         case choosing
@@ -403,14 +406,18 @@ struct AnalyzeFoodView: View {
                             .font(.cookbookSerif(24, weight: .bold))
                             .foregroundStyle(Theme.ink)
                             .multilineTextAlignment(.center)
-                        Text("\(analysis.totalCalories) calories")
+                        Text("\(scaled(analysis.totalCalories)) calories")
                             .font(.system(size: 17, weight: .bold))
                             .foregroundStyle(Theme.spice)
+                            .contentTransition(.numericText())
+                            .animation(.snappy, value: portion)
                     }
 
                     macroSummary(analysis)
 
                     mealTypePicker
+
+                    portionPicker
 
                     itemsList(analysis)
 
@@ -438,9 +445,49 @@ struct AnalyzeFoodView: View {
 
     private func macroSummary(_ analysis: MealAnalysis) -> some View {
         HStack(spacing: 10) {
-            macroPill("Protein", grams: analysis.totalProtein, tint: Theme.sage)
-            macroPill("Carbs", grams: analysis.totalCarbs, tint: Theme.amber)
-            macroPill("Fat", grams: analysis.totalFat, tint: Theme.spice)
+            macroPill("Protein", grams: analysis.totalProtein * portion, tint: Theme.sage)
+            macroPill("Carbs", grams: analysis.totalCarbs * portion, tint: Theme.amber)
+            macroPill("Fat", grams: analysis.totalFat * portion, tint: Theme.spice)
+        }
+    }
+
+    private func scaled(_ value: Int) -> Int { Int((Double(value) * portion).rounded()) }
+
+    private var portionPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Portion eaten")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.inkSoft)
+            HStack(spacing: 8) {
+                ForEach(portionPresets, id: \.self) { value in
+                    let isSelected = abs(portion - value) < 0.001
+                    Button {
+                        withAnimation(.snappy) { portion = value }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        Text(portionLabel(value))
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(isSelected ? .white : Theme.ink)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 11)
+                            .background(isSelected ? Theme.spice : Theme.paperRaised, in: .rect(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.ink.opacity(0.06), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func portionLabel(_ value: Double) -> String {
+        switch value {
+        case 0.25: return "¼"
+        case 0.5: return "½"
+        case 0.75: return "¾"
+        case 1.0: return "1"
+        case 1.5: return "1½"
+        case 2.0: return "2"
+        default: return String(format: "%.2g", value)
         }
     }
 
@@ -617,13 +664,14 @@ struct AnalyzeFoodView: View {
             name: analysis.mealName,
             mealType: mealType,
             servingDescription: analysis.items.map(\.name).joined(separator: ", "),
-            calories: analysis.totalCalories,
-            protein: analysis.totalProtein,
-            carbs: analysis.totalCarbs,
-            fat: analysis.totalFat,
+            calories: scaled(analysis.totalCalories),
+            protein: (analysis.totalProtein * portion * 10).rounded() / 10,
+            carbs: (analysis.totalCarbs * portion * 10).rounded() / 10,
+            fat: (analysis.totalFat * portion * 10).rounded() / 10,
             loggedAt: entryTimestamp,
             wasAIEstimated: true,
-            photoData: capturedImage?.jpegData(compressionQuality: 0.7)
+            photoData: capturedImage?.jpegData(compressionQuality: 0.7),
+            portion: portion
         )
         modelContext.insert(entry)
         let generator = UINotificationFeedbackGenerator()

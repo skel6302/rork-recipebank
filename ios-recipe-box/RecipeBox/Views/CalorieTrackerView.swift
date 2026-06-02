@@ -28,6 +28,7 @@ struct CalorieTrackerView: View {
     @State private var addMealType: MealType = MealType.suggested()
     @State private var showingGoals = false
     @State private var showingWeight = false
+    @State private var editingEntry: FoodEntry?
     @State private var health = HealthManager()
 
     private var todaysEntries: [FoodEntry] {
@@ -120,6 +121,9 @@ struct CalorieTrackerView: View {
             }
             .sheet(isPresented: $showingWeight) {
                 weightSheet
+            }
+            .sheet(item: $editingEntry) { entry in
+                FoodEntryEditView(entry: entry)
             }
             .task {
                 await health.requestAuthorization()
@@ -519,6 +523,31 @@ struct CalorieTrackerView: View {
     }
 
     private func foodRow(_ entry: FoodEntry) -> some View {
+        Button {
+            guard !isDayClosed else { return }
+            editingEntry = entry
+        } label: {
+            foodRowContent(entry)
+        }
+        .buttonStyle(.plain)
+        .disabled(isDayClosed)
+        .contextMenu {
+            if !isDayClosed {
+                Button {
+                    editingEntry = entry
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                Button(role: .destructive) {
+                    modelContext.delete(entry)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        }
+    }
+
+    private func foodRowContent(_ entry: FoodEntry) -> some View {
         HStack(spacing: 12) {
             Group {
                 if let data = entry.photoData, let image = UIImage(data: data) {
@@ -538,10 +567,20 @@ struct CalorieTrackerView: View {
             .clipShape(.rect(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.name)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(entry.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                    if entry.portion != 1 {
+                        Text(portionBadge(entry.portion))
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(entry.mealType.tint)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(entry.mealType.tint.opacity(0.15), in: .capsule)
+                    }
+                }
                 HStack(spacing: 6) {
                     Text("P \(Int(entry.protein.rounded()))")
                     Text("C \(Int(entry.carbs.rounded()))")
@@ -559,14 +598,19 @@ struct CalorieTrackerView: View {
                 .foregroundStyle(Theme.inkSoft)
         }
         .padding(.vertical, 10)
-        .contextMenu {
-            if !isDayClosed {
-                Button(role: .destructive) {
-                    modelContext.delete(entry)
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-            }
+        .contentShape(Rectangle())
+    }
+
+    private func portionBadge(_ portion: Double) -> String {
+        switch portion {
+        case 0.25: return "¼"
+        case 0.5: return "½"
+        case 0.75: return "¾"
+        case 1.5: return "1½"
+        case 2.0: return "2×"
+        default:
+            if portion == portion.rounded() { return "\(Int(portion))×" }
+            return String(format: "%.2g×", portion)
         }
     }
 
