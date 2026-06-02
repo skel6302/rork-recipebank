@@ -398,6 +398,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = RecipeBox/RecipeBox.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
@@ -406,6 +407,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = RecipeBank;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Recipe Box uses the camera to scan recipes and to photograph meals for calorie tracking.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Recipe Box reads your steps, active calories, exercise minutes and sleep from Apple Watch and Health to show your daily activity.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Recipe Box can save data to Health.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Recipe Box accesses your photos to import recipes and analyze food for calorie tracking.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -434,6 +437,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = RecipeBox/RecipeBox.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
@@ -442,6 +446,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = RecipeBank;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Recipe Box uses the camera to scan recipes and to photograph meals for calorie tracking.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Recipe Box reads your steps, active calories, exercise minutes and sleep from Apple Watch and Health to show your daily activity.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Recipe Box can save data to Health.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Recipe Box accesses your photos to import recipes and analyze food for calorie tracking.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

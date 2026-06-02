@@ -326,9 +326,26 @@ struct CalorieTrackerView: View {
             }
 
             if !health.isAvailable {
-                Text("Connect this app on your iPhone to sync steps, calories and sleep from Apple Watch and Health.")
+                Text("Install RecipeBank on your iPhone via TestFlight to sync steps, calories, exercise and sleep from Apple Watch and Health.")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.inkSoft)
+            } else if !health.isAuthorized {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Allow Health access to see your Apple Watch steps, calories, exercise and sleep here.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.inkSoft)
+                    Button {
+                        Task { await health.requestAuthorization() }
+                    } label: {
+                        Text("Connect Health")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 18)
+                            .background(Theme.sage, in: .capsule)
+                    }
+                    .buttonStyle(.plain)
+                }
             } else {
                 HStack(spacing: 10) {
                     metricTile(symbol: "shoeprints.fill", tint: Theme.amber, value: "\(health.steps)", label: "Steps")

@@ -4,18 +4,16 @@
 //
 
 import Foundation
+import HealthKit
 
 /// Surfaces Apple Watch / Health activity data (steps, active calories, exercise
-/// minutes, sleep) for a given day.
+/// minutes, sleep) for a given day by reading from HealthKit.
 ///
-/// HealthKit is a *restricted* Apple capability: it can only be linked and signed
-/// with a provisioning profile that Apple has explicitly enabled for HealthKit.
-/// Rork installs to your device with ad-hoc (free) signing, which cannot carry
-/// that entitlement, so linking the HealthKit framework makes the install step
-/// fail deterministically. To keep on-device installs working, this manager
-/// exposes the same API but reports Health data as unavailable. When the app is
-/// shipped through TestFlight / the App Store (where HealthKit can be properly
-/// provisioned), the live HealthKit reads can be restored.
+/// Data such as steps, active energy, exercise minutes and sleep is recorded by
+/// Apple Watch and synced into the iPhone's Health database, which this manager
+/// reads. HealthKit requires the `com.apple.developer.healthkit` entitlement and
+/// is only available on real devices (TestFlight / App Store builds), not in the
+/// simulator. On unsupported builds every read is a graceful no-op.
 @Observable
 @MainActor
 final class HealthManager {
@@ -31,13 +29,109 @@ final class HealthManager {
     /// True once the user has granted (or been prompted for) Health access.
     var isAuthorized: Bool = false
     /// Whether Health data is available on this device at all.
-    let isAvailable: Bool = false
+    let isAvailable: Bool = HKHealthStore.isHealthDataAvailable()
 
-    /// Requests read access, then loads today's data. No-op while HealthKit is
-    /// not provisioned for this build.
-    func requestAuthorization() async {}
+    private let store = HKHealthStore()
 
-    /// Refreshes all metrics for the given day. No-op while HealthKit is not
-    /// provisioned for this build.
-    func refresh(for date: Date) async {}
+    private var readTypes: Set<HKObjectType> {
+        var types: Set<HKObjectType> = []
+        if let steps = HKQuantityType.quantityType(forIdentifier: .stepCount) {
+            types.insert(steps)
+        }
+        if let active = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) {
+            types.insert(active)
+        }
+        if let exercise = HKQuantityType.quantityType(forIdentifier: .appleExerciseTime) {
+            types.insert(exercise)
+        }
+        if let sleep = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) {
+            types.insert(sleep)
+        }
+        return types
+    }
+
+    /// Requests read access, then loads today's data.
+    func requestAuthorization() async {
+        guard isAvailable else { return }
+        do {
+            try await store.requestAuthorization(toShare: [], read: readTypes)
+            isAuthorized = true
+            await refresh(for: .now)
+        } catch {
+            print("HealthKit authorization failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Refreshes all metrics for the given day.
+    func refresh(for date: Date) async {
+        guard isAvailable else { return }
+        async let stepCount = sum(.stepCount, unit: .count(), on: date)
+        async let calories = sum(.activeEnergyBurned, unit: .kilocalorie(), on: date)
+        async let exercise = sum(.appleExerciseTime, unit: .minute(), on: date)
+        async let sleep = sleepHours(forNightEnding: date)
+
+        let (s, c, e, sl) = await (stepCount, calories, exercise, sleep)
+        steps = Int(s.rounded())
+        activeCalories = Int(c.rounded())
+        exerciseMinutes = Int(e.rounded())
+        sleepHours = sl
+    }
+
+    // MARK: - Quantity sums
+
+    private func sum(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit, on date: Date) async -> Double {
+        guard let type = HKQuantityType.quantityType(forIdentifier: identifier) else { return 0 }
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: date)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return 0 }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum
+            ) { _, statistics, _ in
+                let value = statistics?.sumQuantity()?.doubleValue(for: unit) ?? 0
+                continuation.resume(returning: value)
+            }
+            store.execute(query)
+        }
+    }
+
+    // MARK: - Sleep
+
+    /// Total asleep hours for the night that ends on the morning of `date`.
+    private func sleepHours(forNightEnding date: Date) async -> Double {
+        guard let type = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return 0 }
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
+        // Window: from 6pm the previous evening to noon on the selected day.
+        guard
+            let windowStart = calendar.date(byAdding: .hour, value: -6, to: dayStart),
+            let windowEnd = calendar.date(byAdding: .hour, value: 12, to: dayStart)
+        else { return 0 }
+        let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: windowEnd, options: [])
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: nil
+            ) { _, samples, _ in
+                let asleepValues: Set<Int> = [
+                    HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+                    HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                    HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+                    HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+                ]
+                let seconds = (samples as? [HKCategorySample] ?? [])
+                    .filter { asleepValues.contains($0.value) }
+                    .reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) }
+                continuation.resume(returning: seconds / 3600.0)
+            }
+            store.execute(query)
+        }
+    }
 }
