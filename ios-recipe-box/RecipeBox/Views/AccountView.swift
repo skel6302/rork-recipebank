@@ -4,7 +4,6 @@
 //
 
 import SwiftUI
-import AuthenticationServices
 
 /// Account sheet showing the signed-in user, sync status, and sign-out.
 struct AccountView: View {
@@ -65,39 +64,20 @@ struct AccountView: View {
             }
             .padding(.horizontal, 8)
 
-            VStack(spacing: 12) {
-                if auth.isSigningIn {
-                    ProgressView().padding(.bottom, 2)
+            Button {
+                Task {
+                    await auth.signOut()
+                    dismiss()
                 }
-
-                SignInWithAppleButton(.signIn) { request in
-                    request.requestedScopes = [.email, .fullName]
-                } onCompletion: { _ in
-                    Task { await auth.signIn(provider: "apple") }
-                }
-                .signInWithAppleButtonStyle(.black)
-                .frame(height: 52)
-                .clipShape(.rect(cornerRadius: 14))
-                .disabled(auth.isSigningIn)
-
-                Button {
-                    Task { await auth.signIn(provider: "google") }
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "globe")
-                            .font(.system(size: 17, weight: .semibold))
-                        Text("Sign in with Google")
-                            .font(.system(size: 17, weight: .semibold))
-                    }
-                    .foregroundStyle(Theme.ink)
+            } label: {
+                Text("Create an account or sign in")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(.white, in: .rect(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.ink.opacity(0.12), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .disabled(auth.isSigningIn)
+                    .frame(height: 54)
+                    .background(Theme.warmGradient, in: .rect(cornerRadius: 14))
             }
+            .buttonStyle(.plain)
             .padding(.top, 4)
         }
         .frame(maxWidth: .infinity)
