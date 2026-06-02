@@ -9,8 +9,11 @@ turn that plan into a shopping list in one tap.
 
 - **Weekly planner** — a "Plan" tab showing all seven days of the week, each with
   Breakfast, Lunch, and Dinner slots.
-- **Assign recipes** — tap any slot to pick a recipe from your collection; add more
-  than one recipe to a slot if needed.
+- **Assign recipes or foods** — tap any slot to add either a recipe from your
+  collection or a standalone food (e.g. a bagel) searched from a food database with
+  nutrition; add more than one item to a slot if needed.
+- **Food database search** — the picker's Foods tab searches Open Food Facts by name
+  and can also estimate any food's nutrition with AI.
 - **Browse weeks** — move forward or back a week; today's day is highlighted.
 - **Tap to open** — tap a planned recipe to jump to its full detail page.
 - **Send week to shopping list** — one button adds every ingredient from the week's
@@ -21,13 +24,15 @@ turn that plan into a shopping list in one tap.
 
 - Matches the warm cookbook aesthetic: paper background, spice accents, serif headings.
 - Each day is a rounded card; today gets a spice-colored border and a "TODAY" badge.
-- Empty meal slots show a dashed "Add a recipe" placeholder; filled slots show a recipe
-  thumbnail, title, ingredient count, and cook time.
+- Empty meal slots show a dashed "Add a recipe or food" placeholder; filled recipe
+  slots show a thumbnail, title, ingredient count, and cook time, while food slots show
+  a fork icon, name, calories, and serving.
 - A floating warm-gradient button sends the week to the shopping list, turning green
   with a checkmark on success.
 
 ## Screens
 
 - **Plan tab** — the weekly planner (new).
-- **Recipe picker sheet** — searchable list of your recipes when filling a slot.
+- **Recipe picker sheet** — a two-tab sheet (Recipes / Foods) for filling a slot with
+  a saved recipe or a searched food item.
 - **Shopping tab** — unchanged, now also fed by the weekly plan.

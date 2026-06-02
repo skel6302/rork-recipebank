@@ -78,9 +78,11 @@ struct MealPlannerView: View {
                 RecipeDetailView(recipe: recipe)
             }
             .sheet(item: $pickerTarget) { target in
-                MealRecipePickerView(recipes: recipes) { recipe in
-                    assign(recipe: recipe, to: target)
-                }
+                MealRecipePickerView(
+                    recipes: recipes,
+                    onSelectRecipe: { recipe in assign(recipe: recipe, to: target) },
+                    onSelectFood: { food in assign(food: food, to: target) }
+                )
             }
             .confirmationDialog(
                 "Clear this week's plan?",
@@ -217,7 +219,7 @@ struct MealPlannerView: View {
                         HStack(spacing: 6) {
                             Image(systemName: "plus")
                                 .font(.system(size: 11, weight: .bold))
-                            Text("Add a recipe")
+                            Text("Add a recipe or food")
                                 .font(.system(size: 13, weight: .medium))
                         }
                         .foregroundStyle(Theme.inkSoft.opacity(0.7))
@@ -281,6 +283,12 @@ struct MealPlannerView: View {
             if let recipe = planned.recipe {
                 RecipeThumbnail(category: recipe.category, cornerRadius: 8, photoData: recipe.displayPhotoData)
                     .frame(width: 38, height: 38)
+            } else if planned.isFood {
+                Image(systemName: "fork.knife")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.sage)
+                    .frame(width: 38, height: 38)
+                    .background(Theme.sage.opacity(0.12), in: .rect(cornerRadius: 8))
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(planned.displayTitle)
@@ -291,6 +299,11 @@ struct MealPlannerView: View {
                     Text("\(recipe.ingredients.count) ingredients · \(recipe.totalMinutes)m")
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.inkSoft)
+                } else if planned.isFood {
+                    Text("\(planned.foodCalories) cal · \(planned.foodServing ?? "1 serving")")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.inkSoft)
+                        .lineLimit(1)
                 }
             }
             Spacer()
@@ -346,6 +359,27 @@ struct MealPlannerView: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
+    private func assign(food: PlannedFood, to target: SlotTarget) {
+        let existing = plannedThisWeek.filter {
+            Calendar.current.isDate($0.dayStart, inSameDayAs: target.day) && $0.mealType == target.meal
+        }
+        let planned = PlannedMeal(
+            dayStart: target.day,
+            mealType: target.meal,
+            sortIndex: existing.count,
+            customTitle: food.name,
+            foodName: food.name,
+            foodServing: food.serving,
+            foodCalories: food.calories,
+            foodProtein: food.protein,
+            foodCarbs: food.carbs,
+            foodFat: food.fat
+        )
+        modelContext.insert(planned)
+        try? modelContext.save()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     private func remove(_ planned: PlannedMeal) {
         withAnimation(.snappy) { modelContext.delete(planned) }
         try? modelContext.save()
@@ -364,7 +398,21 @@ struct MealPlannerView: View {
         // Merge duplicate ingredients across the week's recipes by name.
         var merged: [String: ShoppingItem] = [:]
         for planned in plannedThisWeek {
-            guard let recipe = planned.recipe else { continue }
+            guard let recipe = planned.recipe else {
+                // Standalone foods get added as a single line item.
+                if planned.isFood, let name = planned.foodName {
+                    let key = name.lowercased()
+                    if merged[key] == nil {
+                        merged[key] = ShoppingItem(
+                            name: name,
+                            quantity: planned.foodServing ?? "",
+                            aisle: .other,
+                            sourceRecipeTitle: "Meal Plan"
+                        )
+                    }
+                }
+                continue
+            }
             for ing in recipe.ingredients {
                 let key = ing.name.lowercased()
                 if let existing = merged[key] {
