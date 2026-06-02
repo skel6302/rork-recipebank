@@ -56,6 +56,14 @@ struct RecipeDetailView: View {
                     Button { showingEdit = true } label: {
                         Label("Edit Recipe", systemImage: "pencil")
                     }
+                    if !recipe.originalPages.isEmpty {
+                        Button { showingOriginal = true } label: {
+                            Label(
+                                recipe.originalPages.count > 1 ? "View Original Scan (\(recipe.originalPages.count) Pages)" : "View Original Scan",
+                                systemImage: "doc.text.image"
+                            )
+                        }
+                    }
                     Button(role: .destructive) {
                         showingDeleteConfirm = true
                     } label: {
