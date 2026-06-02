@@ -17,7 +17,7 @@ struct ScanRecipeView: View {
     var onScanned: (ScannedRecipe) -> Void
 
     @State private var phase: Phase = .choosing
-    @State private var photoItem: PhotosPickerItem?
+    @State private var photoItems: [PhotosPickerItem] = []
     @State private var showingCamera = false
 
     private enum Phase: Equatable {
@@ -48,17 +48,17 @@ struct ScanRecipeView: View {
                 }
             }
             .fullScreenCover(isPresented: $showingCamera) {
-                DocumentScannerView { image in
+                DocumentScannerView { images in
                     showingCamera = false
-                    if let image {
-                        process(image)
+                    if !images.isEmpty {
+                        process(images)
                     }
                 }
                 .ignoresSafeArea()
             }
-            .onChange(of: photoItem) { _, newItem in
-                guard let newItem else { return }
-                loadPhoto(newItem)
+            .onChange(of: photoItems) { _, newItems in
+                guard !newItems.isEmpty else { return }
+                loadPhotos(newItems)
             }
         }
         .tint(Theme.spice)
@@ -75,7 +75,7 @@ struct ScanRecipeView: View {
                     if cameraSupported {
                         captureCard(
                             title: "Scan with Camera",
-                            subtitle: "Point at a recipe card or page — edges are detected automatically.",
+                            subtitle: "Capture every page — scan multiple pages and we'll combine them into one recipe.",
                             symbol: "doc.viewfinder",
                             tint: Theme.spice
                         ) {
@@ -85,10 +85,10 @@ struct ScanRecipeView: View {
                         cameraUnavailableNote
                     }
 
-                    PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                    PhotosPicker(selection: $photoItems, maxSelectionCount: 6, matching: .images, photoLibrary: .shared()) {
                         captureCardLabel(
-                            title: "Choose a Photo",
-                            subtitle: "Import a snapshot of a handwritten or printed recipe.",
+                            title: "Choose Photos",
+                            subtitle: "Import one or more pages of a handwritten or printed recipe.",
                             symbol: "photo.on.rectangle.angled",
                             tint: Theme.sage
                         )
@@ -188,7 +188,7 @@ struct ScanRecipeView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.spice)
             tip("Lay the recipe flat with good, even lighting.")
-            tip("Fill the frame and avoid shadows over the text.")
+            tip("Recipe spread across pages? Scan or pick every page — we'll merge them.")
             tip("After scanning, review the draft — you can fix any words.")
         }
         .padding(16)
@@ -226,27 +226,31 @@ struct ScanRecipeView: View {
 
     // MARK: - Actions
 
-    private func loadPhoto(_ item: PhotosPickerItem) {
+    private func loadPhotos(_ items: [PhotosPickerItem]) {
         phase = .processing
         Task {
-            guard
-                let data = try? await item.loadTransferable(type: Data.self),
-                let image = UIImage(data: data)
-            else {
+            var images: [UIImage] = []
+            for item in items {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    images.append(image)
+                }
+            }
+            guard !images.isEmpty else {
                 phase = .choosing
                 return
             }
-            await runScan(on: image)
+            await runScan(on: images)
         }
     }
 
-    private func process(_ image: UIImage) {
+    private func process(_ images: [UIImage]) {
         phase = .processing
-        Task { await runScan(on: image) }
+        Task { await runScan(on: images) }
     }
 
-    private func runScan(on image: UIImage) async {
-        let result = await RecipeScanner.scan(image: image)
+    private func runScan(on images: [UIImage]) async {
+        let result = await RecipeScanner.scan(images: images)
         await MainActor.run {
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)

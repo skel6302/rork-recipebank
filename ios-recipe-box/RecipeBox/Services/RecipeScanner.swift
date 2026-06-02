@@ -54,17 +54,26 @@ enum RecipeScanner {
     /// the line-by-line heuristics get wrong). If that fails — offline, not
     /// configured, or an unreadable photo — we fall back to on-device Vision OCR.
     nonisolated static func scan(image: UIImage) async -> ScannedRecipe {
-        let normalized = image.normalizedUp()
-        let photoData = normalized.jpegData(compressionQuality: 0.8)
+        await scan(images: [image])
+    }
 
-        if let aiParsed = try? await AIRecipeParser.parse(image: normalized) {
+    /// Full pipeline for a multi-page recipe. All pages are read together so a
+    /// recipe whose method lives on a second page keeps its cooking steps.
+    nonisolated static func scan(images: [UIImage]) async -> ScannedRecipe {
+        let normalized = images.map { $0.normalizedUp() }
+        let photoData = normalized.first?.jpegData(compressionQuality: 0.8)
+
+        if let aiParsed = try? await AIRecipeParser.parse(images: normalized) {
             var result = aiParsed
             result.photoData = photoData
             return result
         }
 
-        let lines = await recognizeLines(in: normalized)
-        var parsed = RecipeTextParser.parse(lines: lines)
+        var allLines: [String] = []
+        for page in normalized {
+            allLines.append(contentsOf: await recognizeLines(in: page))
+        }
+        var parsed = RecipeTextParser.parse(lines: allLines)
         parsed.photoData = photoData
         return parsed
     }

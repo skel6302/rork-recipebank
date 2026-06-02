@@ -7,12 +7,13 @@ import SwiftUI
 import VisionKit
 
 /// A thin SwiftUI wrapper around VisionKit's document camera. It captures one or
-/// more pages and returns the first scanned page as a `UIImage`.
+/// more pages and returns every scanned page in order, so multi-page recipes
+/// (ingredients on one page, method on the next) are read in full.
 ///
 /// The cloud simulator has no camera, so callers should only present this when
 /// `VNDocumentCameraViewController.isSupported` is true.
 struct DocumentScannerView: UIViewControllerRepresentable {
-    var onComplete: (UIImage?) -> Void
+    var onComplete: ([UIImage]) -> Void
 
     func makeUIViewController(context: Context) -> VNDocumentCameraViewController {
         let controller = VNDocumentCameraViewController()
@@ -27,9 +28,9 @@ struct DocumentScannerView: UIViewControllerRepresentable {
     }
 
     final class Coordinator: NSObject, VNDocumentCameraViewControllerDelegate {
-        let onComplete: (UIImage?) -> Void
+        let onComplete: ([UIImage]) -> Void
 
-        init(onComplete: @escaping (UIImage?) -> Void) {
+        init(onComplete: @escaping ([UIImage]) -> Void) {
             self.onComplete = onComplete
         }
 
@@ -37,19 +38,19 @@ struct DocumentScannerView: UIViewControllerRepresentable {
             _ controller: VNDocumentCameraViewController,
             didFinishWith scan: VNDocumentCameraScan
         ) {
-            let image = scan.pageCount > 0 ? scan.imageOfPage(at: 0) : nil
-            onComplete(image)
+            let images = (0..<scan.pageCount).map { scan.imageOfPage(at: $0) }
+            onComplete(images)
         }
 
         func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) {
-            onComplete(nil)
+            onComplete([])
         }
 
         func documentCameraViewController(
             _ controller: VNDocumentCameraViewController,
             didFailWithError error: Error
         ) {
-            onComplete(nil)
+            onComplete([])
         }
     }
 }

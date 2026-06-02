@@ -76,13 +76,25 @@ nonisolated enum AIRecipeParser {
 
     /// Reads a recipe photo and returns a structured draft via the vision model.
     static func parse(image: UIImage) async throws -> ScannedRecipe {
-        guard let base64 = resizedBase64JPEG(from: image) else {
-            throw ParseError.imageTooLarge
+        try await parse(images: [image])
+    }
+
+    /// Reads one or more pages of a single recipe (e.g. ingredients on page one,
+    /// method on page two) and merges them into one structured draft.
+    static func parse(images: [UIImage]) async throws -> ScannedRecipe {
+        guard !images.isEmpty else { throw ParseError.empty }
+
+        let encoded = images.compactMap { resizedBase64JPEG(from: $0) }
+        guard !encoded.isEmpty else { throw ParseError.imageTooLarge }
+
+        let promptText = encoded.count > 1
+            ? "These \(encoded.count) photos are different pages of ONE recipe (for example, ingredients on one page and the cooking method on another). Combine them into a single recipe. Include EVERY numbered cooking instruction/step across ALL pages, in order, with the full text — not just the ingredients."
+            : "Read this recipe and return the structured JSON. Include EVERY numbered cooking instruction/step you can see, in order, with the full text — not just the ingredients."
+
+        var content: [[String: Any]] = [["type": "text", "text": promptText]]
+        for base64 in encoded {
+            content.append(["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(base64)"]])
         }
-        let content: [[String: Any]] = [
-            ["type": "text", "text": "Read this recipe and return the structured JSON. Include EVERY numbered cooking instruction/step you can see, in order, with the full text — not just the ingredients."],
-            ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(base64)"]],
-        ]
         let parsed = try await request(userContent: content)
 
         let ingredients = parsed.ingredients
