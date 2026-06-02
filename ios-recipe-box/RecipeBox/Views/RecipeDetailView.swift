@@ -86,8 +86,9 @@ struct RecipeDetailView: View {
             Text("This can't be undone.")
         }
         .sheet(isPresented: $showingOriginal) {
-            if let data = recipe.originalPhotoData, let uiImage = UIImage(data: data) {
-                OriginalPhotoView(image: uiImage)
+            let images = recipe.originalPages.compactMap { UIImage(data: $0) }
+            if !images.isEmpty {
+                OriginalPhotoView(images: images)
             }
         }
     }
@@ -115,7 +116,7 @@ struct RecipeDetailView: View {
                     )
                     .overlay(alignment: .topLeading) {
                         if recipe.originalPhotoData != nil {
-                            Label("Scanned", systemImage: "text.viewfinder")
+                            Label(recipe.originalPages.count > 1 ? "Scanned · \(recipe.originalPages.count) pages" : "Scanned", systemImage: "text.viewfinder")
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 12)
@@ -130,7 +131,7 @@ struct RecipeDetailView: View {
                             Button {
                                 showingOriginal = true
                             } label: {
-                                Label("View Original", systemImage: "arrow.up.left.and.arrow.down.right")
+                                Label(recipe.originalPages.count > 1 ? "View Pages" : "View Original", systemImage: "arrow.up.left.and.arrow.down.right")
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 14)

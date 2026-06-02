@@ -27,6 +27,7 @@ struct RecipeEditView: View {
     @State private var ingredients: [DraftIngredient] = [DraftIngredient()]
     @State private var steps: [String] = [""]
     @State private var originalPhotoData: Data? = nil
+    @State private var originalPhotoPages: [Data] = []
     @State private var photoData: Data? = nil
     @State private var pickedItem: PhotosPickerItem? = nil
     @State private var showingCamera: Bool = false
@@ -34,6 +35,13 @@ struct RecipeEditView: View {
 
     private var cameraAvailable: Bool {
         UIImagePickerController.isSourceTypeAvailable(.camera)
+    }
+
+    /// All original-scan pages currently held in the editor.
+    private var displayPages: [Data] {
+        if !originalPhotoPages.isEmpty { return originalPhotoPages }
+        if let originalPhotoData { return [originalPhotoData] }
+        return []
     }
 
     private var isEditing: Bool { recipe != nil }
@@ -99,15 +107,31 @@ struct RecipeEditView: View {
                     }
                 }
 
-                if let originalPhotoData, let uiImage = UIImage(data: originalPhotoData) {
-                    Section("Original Scan") {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity)
-                            .clipShape(.rect(cornerRadius: 12))
-                            .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-                        Text("We kept a photo of the source so you always have the original.")
+                if !displayPages.isEmpty {
+                    Section(displayPages.count > 1 ? "Original Scan (\(displayPages.count) pages)" : "Original Scan") {
+                        ForEach(Array(displayPages.enumerated()), id: \.offset) { index, data in
+                            if let uiImage = UIImage(data: data) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: .infinity)
+                                    .clipShape(.rect(cornerRadius: 12))
+                                    .overlay(alignment: .topTrailing) {
+                                        if displayPages.count > 1 {
+                                            let pageLabel = "Page " + String(index + 1)
+                                            Text(pageLabel)
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundStyle(.white)
+                                                .padding(.horizontal, 9)
+                                                .padding(.vertical, 5)
+                                                .background(.black.opacity(0.45), in: .capsule)
+                                                .padding(10)
+                                        }
+                                    }
+                                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                            }
+                        }
+                        Text("We kept every page of the source so you always have the original.")
                             .font(.system(size: 12))
                             .foregroundStyle(Theme.inkSoft)
                     }
@@ -217,11 +241,13 @@ struct RecipeEditView: View {
             ingredients = prefill.ingredients.isEmpty ? [DraftIngredient()] : prefill.ingredients
             steps = prefill.steps.isEmpty ? [""] : prefill.steps
             originalPhotoData = prefill.photoData
+            originalPhotoPages = prefill.pagePhotos
             return
         }
 
         guard let recipe else { return }
         originalPhotoData = recipe.originalPhotoData
+        originalPhotoPages = recipe.originalPhotoPages
         photoData = recipe.photoData
         title = recipe.title
         summary = recipe.summary
@@ -257,6 +283,7 @@ struct RecipeEditView: View {
             recipe.ingredients = cleanIngredients
             recipe.steps = cleanSteps
             recipe.originalPhotoData = originalPhotoData
+            recipe.originalPhotoPages = originalPhotoPages
             recipe.photoData = photoData
             recipe.touch()
         } else {
@@ -271,6 +298,7 @@ struct RecipeEditView: View {
                 ingredients: cleanIngredients,
                 steps: cleanSteps,
                 originalPhotoData: originalPhotoData,
+                originalPhotoPages: originalPhotoPages,
                 photoData: photoData,
                 wasScanned: prefill != nil
             )

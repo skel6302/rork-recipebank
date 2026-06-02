@@ -16,7 +16,10 @@ struct ScannedRecipe: Identifiable {
     var ingredients: [DraftIngredient]
     var steps: [String]
     var rawText: String
+    /// The primary page photo (first page), kept for the card/hero thumbnail.
     var photoData: Data?
+    /// Every captured page, in order, so multi-page recipes keep all their source images.
+    var pagePhotos: [Data] = []
 }
 
 /// Runs Apple's Vision text recognition over a photo and parses the result
@@ -61,11 +64,13 @@ enum RecipeScanner {
     /// recipe whose method lives on a second page keeps its cooking steps.
     nonisolated static func scan(images: [UIImage]) async -> ScannedRecipe {
         let normalized = images.map { $0.normalizedUp() }
-        let photoData = normalized.first?.jpegData(compressionQuality: 0.8)
+        let pagePhotos = normalized.compactMap { $0.jpegData(compressionQuality: 0.8) }
+        let photoData = pagePhotos.first
 
         if let aiParsed = try? await AIRecipeParser.parse(images: normalized) {
             var result = aiParsed
             result.photoData = photoData
+            result.pagePhotos = pagePhotos
             return result
         }
 
@@ -75,6 +80,7 @@ enum RecipeScanner {
         }
         var parsed = RecipeTextParser.parse(lines: allLines)
         parsed.photoData = photoData
+        parsed.pagePhotos = pagePhotos
         return parsed
     }
 }

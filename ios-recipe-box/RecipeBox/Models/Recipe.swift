@@ -26,6 +26,12 @@ final class Recipe {
     /// so large image blobs don't bloat the SwiftData store.
     @Attribute(.externalStorage) var originalPhotoData: Data?
 
+    /// Every page of the original scanned source, in capture order. A recipe split
+    /// across multiple pages (ingredients on one, method on another) keeps all of
+    /// them here so nothing is lost. `originalPhotoData` mirrors the first page for
+    /// the card/hero thumbnail and backward compatibility.
+    var originalPhotoPages: [Data] = []
+
     /// A photo of the finished dish, chosen by the user from the photo library or
     /// camera. Shown on the recipe card and detail hero. Stored externally so the
     /// SwiftData store stays small.
@@ -65,6 +71,7 @@ final class Recipe {
         steps: [String] = [],
         createdAt: Date = .now,
         originalPhotoData: Data? = nil,
+        originalPhotoPages: [Data] = [],
         photoData: Data? = nil,
         wasScanned: Bool = false,
         remoteID: String? = nil,
@@ -84,6 +91,7 @@ final class Recipe {
         self.steps = steps
         self.createdAt = createdAt
         self.originalPhotoData = originalPhotoData
+        self.originalPhotoPages = originalPhotoPages
         self.photoData = photoData
         self.wasScanned = wasScanned
         self.remoteID = remoteID
@@ -105,4 +113,12 @@ final class Recipe {
     /// The best photo to represent this recipe visually: a chosen dish photo if
     /// available, otherwise the scanned source photo.
     var displayPhotoData: Data? { photoData ?? originalPhotoData }
+
+    /// All pages of the original scan, falling back to the single legacy photo for
+    /// recipes saved before multi-page capture existed.
+    var originalPages: [Data] {
+        if !originalPhotoPages.isEmpty { return originalPhotoPages }
+        if let originalPhotoData { return [originalPhotoData] }
+        return []
+    }
 }

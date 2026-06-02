@@ -39,6 +39,7 @@ nonisolated struct RemoteRecipe: Codable, Sendable {
     let ingredients: [RemoteIngredient]
     let photoBase64: String?
     let originalPhotoBase64: String?
+    let originalPhotoPages: [String]?
     let wasScanned: Bool
     let deleted: Bool
     let createdAt: Date
@@ -59,6 +60,7 @@ nonisolated struct RemoteRecipe: Codable, Sendable {
         case ingredients
         case photoBase64 = "photo_base64"
         case originalPhotoBase64 = "original_photo_base64"
+        case originalPhotoPages = "original_photo_pages"
         case wasScanned = "was_scanned"
         case deleted
         case createdAt = "created_at"
@@ -83,6 +85,7 @@ nonisolated struct RemoteRecipeUpsert: Encodable, Sendable {
     let ingredients: [RemoteIngredient]
     let photoBase64: String?
     let originalPhotoBase64: String?
+    let originalPhotoPages: [String]?
     let wasScanned: Bool
     let deleted: Bool
     let createdAt: Date
@@ -104,6 +107,7 @@ nonisolated struct RemoteRecipeUpsert: Encodable, Sendable {
         case ingredients
         case photoBase64 = "photo_base64"
         case originalPhotoBase64 = "original_photo_base64"
+        case originalPhotoPages = "original_photo_pages"
         case wasScanned = "was_scanned"
         case deleted
         case createdAt = "created_at"
@@ -564,6 +568,7 @@ final class RecipeSyncService {
         recipe.ingredients = row.ingredients.map { ingredient(from: $0) }
         recipe.photoData = decodeImage(row.photoBase64)
         recipe.originalPhotoData = decodeImage(row.originalPhotoBase64)
+        recipe.originalPhotoPages = decodeImages(row.originalPhotoPages)
         recipe.wasScanned = row.wasScanned
         recipe.updatedAt = row.updatedAt
     }
@@ -583,6 +588,7 @@ final class RecipeSyncService {
             steps: row.steps,
             createdAt: row.createdAt,
             originalPhotoData: decodeImage(row.originalPhotoBase64),
+            originalPhotoPages: decodeImages(row.originalPhotoPages),
             photoData: decodeImage(row.photoBase64),
             wasScanned: row.wasScanned,
             remoteID: row.id.uuidString,
@@ -617,6 +623,7 @@ final class RecipeSyncService {
             ingredients: ingredients,
             photoBase64: recipe.photoData?.base64EncodedString(),
             originalPhotoBase64: recipe.originalPhotoData?.base64EncodedString(),
+            originalPhotoPages: recipe.originalPhotoPages.isEmpty ? nil : recipe.originalPhotoPages.map { $0.base64EncodedString() },
             wasScanned: recipe.wasScanned,
             deleted: false,
             createdAt: recipe.createdAt,
@@ -636,5 +643,10 @@ final class RecipeSyncService {
     private func decodeImage(_ base64: String?) -> Data? {
         guard let base64, !base64.isEmpty else { return nil }
         return Data(base64Encoded: base64)
+    }
+
+    private func decodeImages(_ base64s: [String]?) -> [Data] {
+        guard let base64s else { return [] }
+        return base64s.compactMap { Data(base64Encoded: $0) }
     }
 }

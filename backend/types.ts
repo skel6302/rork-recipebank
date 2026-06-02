@@ -103,6 +103,7 @@ export type Database = {
           is_favorite: boolean
           notes: string
           original_photo_base64: string | null
+          original_photo_pages: Json | null
           photo_base64: string | null
           prep_minutes: number
           rating: number
@@ -124,6 +125,7 @@ export type Database = {
           is_favorite?: boolean
           notes?: string
           original_photo_base64?: string | null
+          original_photo_pages?: Json | null
           photo_base64?: string | null
           prep_minutes?: number
           rating?: number
@@ -145,6 +147,7 @@ export type Database = {
           is_favorite?: boolean
           notes?: string
           original_photo_base64?: string | null
+          original_photo_pages?: Json | null
           photo_base64?: string | null
           prep_minutes?: number
           rating?: number
