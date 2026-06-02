@@ -132,6 +132,12 @@ class AuthManager {
     func signIn(provider: String) async {
         isSigningIn = true
         defer { isSigningIn = false }
+
+        guard !appKey.isEmpty, !authURL.isEmpty else {
+            setError("This build is missing its sign-in configuration. Please install the latest build from TestFlight.")
+            return
+        }
+
         do {
             let verifier = generateCodeVerifier()
             let challenge = generateCodeChallenge(from: verifier)
