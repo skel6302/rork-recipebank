@@ -12,8 +12,8 @@ turn that plan into a shopping list in one tap.
 - **Assign recipes or foods** — tap any slot to add either a recipe from your
   collection or a standalone food (e.g. a bagel) searched from a food database with
   nutrition; add more than one item to a slot if needed.
-- **Food database search** — the picker's Foods tab searches Open Food Facts by name
-  and can also estimate any food's nutrition with AI.
+- **Food database search** — the picker's Foods tab searches USDA FoodData Central
+  (branded foods) by name and can also estimate any food's nutrition with AI.
 - **Browse weeks** — move forward or back a week; today's day is highlighted.
 - **Tap to open** — tap a planned recipe to jump to its full detail page.
 - **Send week to shopping list** — one button adds every ingredient from the week's

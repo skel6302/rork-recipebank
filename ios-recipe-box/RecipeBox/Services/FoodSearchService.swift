@@ -8,36 +8,39 @@ import Foundation
 nonisolated enum FoodSearchError: LocalizedError {
     case badResponse
     case network
+    case notConfigured
 
     var errorDescription: String? {
         switch self {
         case .badResponse: return "We couldn't search the food database right now. Try again."
         case .network: return "Couldn't reach the food database. Check your connection and try again."
+        case .notConfigured: return "The food database isn't set up yet. Please try again later."
         }
     }
 }
 
-/// Searches the free Open Food Facts database by name (e.g. "bagel") and returns
-/// matching foods with nutrition, so the meal planner isn't limited to recipes.
+/// Searches the USDA FoodData Central branded-foods database by name (e.g. "granola")
+/// and returns matching foods with label nutrition, so the meal planner isn't limited
+/// to recipes.
 nonisolated enum FoodSearchService {
-    /// Searches foods by free-text name. Results that lack calorie data are dropped.
+    /// Searches branded foods by free-text name. Results that lack calorie data are dropped.
     static func search(_ query: String, pageSize: Int = 25) async throws -> [AnalyzedFood] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 
-        var components = URLComponents(string: "https://world.openfoodfacts.org/cgi/search.pl")
+        let apiKey = Config.EXPO_PUBLIC_USDA_FDC_API_KEY
+        guard !apiKey.isEmpty else { throw FoodSearchError.notConfigured }
+
+        var components = URLComponents(string: "https://api.nal.usda.gov/fdc/v1/foods/search")
         components?.queryItems = [
-            URLQueryItem(name: "search_terms", value: trimmed),
-            URLQueryItem(name: "search_simple", value: "1"),
-            URLQueryItem(name: "action", value: "process"),
-            URLQueryItem(name: "json", value: "1"),
-            URLQueryItem(name: "page_size", value: String(pageSize)),
-            URLQueryItem(name: "fields", value: "product_name,brands,serving_size,nutriments"),
+            URLQueryItem(name: "api_key", value: apiKey),
+            URLQueryItem(name: "query", value: trimmed),
+            URLQueryItem(name: "dataType", value: "Branded"),
+            URLQueryItem(name: "pageSize", value: String(pageSize)),
         ]
         guard let url = components?.url else { throw FoodSearchError.badResponse }
 
         var req = URLRequest(url: url)
-        req.setValue("RecipeBank/1.0 (iOS app)", forHTTPHeaderField: "User-Agent")
         req.timeoutInterval = 30
 
         let data: Data
@@ -60,7 +63,7 @@ nonisolated enum FoodSearchService {
         }
 
         var seen = Set<String>()
-        return decoded.products.compactMap { map($0) }.filter { food in
+        return decoded.foods.compactMap { map($0) }.filter { food in
             // De-duplicate by name + calories so near-identical rows collapse.
             let key = "\(food.name.lowercased())|\(food.calories)"
             return seen.insert(key).inserted
@@ -69,99 +72,130 @@ nonisolated enum FoodSearchService {
 
     // MARK: - Mapping
 
-    private static func map(_ product: Product) -> AnalyzedFood? {
-        guard let rawName = product.productName?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !rawName.isEmpty else { return nil }
-        let nutriments = product.nutriments ?? Nutriments()
+    private static func map(_ food: SearchFood) -> AnalyzedFood? {
+        let rawName = food.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rawName.isEmpty else { return nil }
 
-        let hasServing = nutriments.energyKcalServing != nil
-        guard let calories = nutriments.energyKcalServing ?? nutriments.energyKcal100g else { return nil }
+        let nutrition = USDANutrition.resolve(food)
+        guard let calories = nutrition.calories else { return nil }
 
-        let protein = nutriments.proteinsServing ?? nutriments.proteins100g ?? 0
-        let carbs = nutriments.carbohydratesServing ?? nutriments.carbohydrates100g ?? 0
-        let fat = nutriments.fatServing ?? nutriments.fat100g ?? 0
-
-        let brand = product.brands?.split(separator: ",").first.map { $0.trimmingCharacters(in: .whitespaces) }
-        let name = (brand?.isEmpty == false) ? "\(brand!) \(rawName)" : rawName
-
-        let serving: String
-        if hasServing, let s = product.servingSize?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
-            serving = s
-        } else if hasServing {
-            serving = "1 serving"
-        } else {
-            serving = "100 g"
-        }
+        let brand = (food.brandName ?? food.brandOwner)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let titled = rawName.capitalizedIfShouting
+        let name = (brand?.isEmpty == false) ? "\(brand!.capitalizedIfShouting) \(titled)" : titled
 
         return AnalyzedFood(
             name: name,
-            servingDescription: serving,
+            servingDescription: nutrition.serving,
             calories: Int(calories.rounded()),
-            protein: protein.rounded(),
-            carbs: carbs.rounded(),
-            fat: fat.rounded()
+            protein: nutrition.protein.rounded(),
+            carbs: nutrition.carbs.rounded(),
+            fat: nutrition.fat.rounded()
         )
     }
 
     // MARK: - DTOs
 
     private struct SearchResponse: Decodable {
-        let products: [Product]
+        let foods: [SearchFood]
+    }
+}
+
+/// A branded food returned by USDA FoodData Central search.
+nonisolated struct SearchFood: Decodable {
+    let description: String
+    let brandOwner: String?
+    let brandName: String?
+    let servingSize: Double?
+    let servingSizeUnit: String?
+    let householdServingFullText: String?
+    let labelNutrients: LabelNutrients?
+    let foodNutrients: [FoodNutrient]?
+    let gtinUpc: String?
+}
+
+/// Per-serving values straight off the product label (preferred when present).
+nonisolated struct LabelNutrients: Decodable {
+    let calories: LabelValue?
+    let protein: LabelValue?
+    let carbohydrates: LabelValue?
+    let fat: LabelValue?
+}
+
+nonisolated struct LabelValue: Decodable {
+    let value: Double?
+}
+
+/// Per-100g nutrient values; used as a fallback when there are no label nutrients.
+nonisolated struct FoodNutrient: Decodable {
+    let nutrientNumber: String?
+    let value: Double?
+}
+
+/// Resolves calories/macros and a human serving description for a USDA food,
+/// preferring per-serving label nutrients and falling back to per-100g nutrients.
+nonisolated enum USDANutrition {
+    struct Result {
+        let calories: Double?
+        let protein: Double
+        let carbs: Double
+        let fat: Double
+        let serving: String
     }
 
-    private struct Product: Decodable {
-        let productName: String?
-        let brands: String?
-        let servingSize: String?
-        let nutriments: Nutriments?
-
-        private enum CodingKeys: String, CodingKey {
-            case productName = "product_name"
-            case brands
-            case servingSize = "serving_size"
-            case nutriments
+    static func resolve(_ food: SearchFood) -> Result {
+        // 1) Label nutrients are already per serving — the cleanest source.
+        if let label = food.labelNutrients, let cals = label.calories?.value {
+            return Result(
+                calories: cals,
+                protein: label.protein?.value ?? 0,
+                carbs: label.carbohydrates?.value ?? 0,
+                fat: label.fat?.value ?? 0,
+                serving: servingDescription(food, perServing: true)
+            )
         }
+
+        // 2) Fall back to per-100g nutrients by USDA nutrient number.
+        let byNumber = Dictionary(
+            (food.foodNutrients ?? []).compactMap { n -> (String, Double)? in
+                guard let num = n.nutrientNumber, let v = n.value else { return nil }
+                return (num, v)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+        if let cals = byNumber["208"] {
+            return Result(
+                calories: cals,
+                protein: byNumber["203"] ?? 0,
+                carbs: byNumber["205"] ?? 0,
+                fat: byNumber["204"] ?? 0,
+                serving: "100 g"
+            )
+        }
+
+        return Result(calories: nil, protein: 0, carbs: 0, fat: 0, serving: "1 serving")
     }
 
-    /// Open Food Facts numeric fields can arrive as numbers or strings, so decode leniently.
-    private struct Nutriments: Decodable {
-        var energyKcalServing: Double?
-        var energyKcal100g: Double?
-        var proteinsServing: Double?
-        var proteins100g: Double?
-        var carbohydratesServing: Double?
-        var carbohydrates100g: Double?
-        var fatServing: Double?
-        var fat100g: Double?
-
-        init() {}
-
-        private enum CodingKeys: String, CodingKey {
-            case energyKcalServing = "energy-kcal_serving"
-            case energyKcal100g = "energy-kcal_100g"
-            case proteinsServing = "proteins_serving"
-            case proteins100g = "proteins_100g"
-            case carbohydratesServing = "carbohydrates_serving"
-            case carbohydrates100g = "carbohydrates_100g"
-            case fatServing = "fat_serving"
-            case fat100g = "fat_100g"
+    static func servingDescription(_ food: SearchFood, perServing: Bool) -> String {
+        if let household = food.householdServingFullText?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !household.isEmpty {
+            return household.capitalizedIfShouting
         }
-
-        init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            func value(_ key: CodingKeys) -> Double? {
-                if let d = try? c.decode(Double.self, forKey: key) { return d }
-                if let s = try? c.decode(String.self, forKey: key) { return Double(s) }
-                return nil
-            }
-            energyKcalServing = value(.energyKcalServing)
-            energyKcal100g = value(.energyKcal100g)
-            proteinsServing = value(.proteinsServing)
-            proteins100g = value(.proteins100g)
-            carbohydratesServing = value(.carbohydratesServing)
-            carbohydrates100g = value(.carbohydrates100g)
-            fatServing = value(.fatServing)
-            fat100g = value(.fat100g)
+        if let size = food.servingSize {
+            let unit = food.servingSizeUnit?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "g"
+            let amount = size.truncatingRemainder(dividingBy: 1) == 0
+                ? String(Int(size)) : String(size)
+            return "\(amount) \(unit)"
         }
+        return perServing ? "1 serving" : "100 g"
+    }
+}
+
+nonisolated extension String {
+    /// USDA returns many names in ALL CAPS; downcase those for nicer display.
+    var capitalizedIfShouting: String {
+        let letters = filter { $0.isLetter }
+        guard !letters.isEmpty, letters.allSatisfy({ $0.isUppercase }) else { return self }
+        return capitalized
     }
 }
