@@ -46,6 +46,86 @@ struct CalorieRing: View {
     }
 }
 
+/// A three-segment donut showing the calorie split between fat, carbs and protein,
+/// alongside a legend with each macro's percentage and gram amount.
+struct MacroBreakdown: View {
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+
+    private let proteinTint = Theme.sage
+    private let carbTint = Theme.amber
+    private let fatTint = Theme.spice
+
+    /// Calories contributed by each macro (4/4/9 kcal per gram).
+    private var calProtein: Double { protein * 4 }
+    private var calCarbs: Double { carbs * 4 }
+    private var calFat: Double { fat * 9 }
+    private var total: Double { calProtein + calCarbs + calFat }
+
+    private var pctProtein: Double { total > 0 ? calProtein / total : 0 }
+    private var pctCarbs: Double { total > 0 ? calCarbs / total : 0 }
+    private var pctFat: Double { total > 0 ? calFat / total : 0 }
+
+    var body: some View {
+        HStack(spacing: 18) {
+            donut
+                .frame(width: 96, height: 96)
+            VStack(alignment: .leading, spacing: 10) {
+                legendRow("Carbs", tint: carbTint, pct: pctCarbs, grams: carbs)
+                legendRow("Fat", tint: fatTint, pct: pctFat, grams: fat)
+                legendRow("Protein", tint: proteinTint, pct: pctProtein, grams: protein)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var donut: some View {
+        ZStack {
+            Circle().stroke(Theme.ink.opacity(0.08), lineWidth: 14)
+            if total > 0 {
+                segment(from: 0, to: pctCarbs, tint: carbTint)
+                segment(from: pctCarbs, to: pctCarbs + pctFat, tint: fatTint)
+                segment(from: pctCarbs + pctFat, to: 1, tint: proteinTint)
+            }
+            VStack(spacing: 0) {
+                Text("\(Int(total.rounded()))")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(Theme.ink)
+                    .contentTransition(.numericText())
+                Text("cal")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.inkSoft)
+            }
+        }
+    }
+
+    private func segment(from: Double, to: Double, tint: Color) -> some View {
+        Circle()
+            .trim(from: from, to: max(from, to))
+            .stroke(tint, style: StrokeStyle(lineWidth: 14, lineCap: .butt))
+            .rotationEffect(.degrees(-90))
+            .animation(.spring(response: 0.6, dampingFraction: 0.85), value: to)
+    }
+
+    private func legendRow(_ label: String, tint: Color, pct: Double, grams: Double) -> some View {
+        HStack(spacing: 8) {
+            Circle().fill(tint).frame(width: 9, height: 9)
+            Text(label)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+            Spacer(minLength: 8)
+            Text("\(Int((pct * 100).rounded()))%")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Theme.ink)
+            Text("\(Int(grams.rounded()))g")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.inkSoft)
+                .frame(width: 40, alignment: .trailing)
+        }
+    }
+}
+
 /// A thin macro progress bar with a label and gram readout.
 struct MacroBar: View {
     let label: String

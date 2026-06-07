@@ -26,6 +26,7 @@ struct AnalyzeFoodView: View {
     @State private var descriptionText = ""
     @State private var showingDescribe = false
     @State private var showingBarcode = false
+    @State private var showingSearch = false
 
     @State private var capturedImage: UIImage?
     @State private var analysis: MealAnalysis?
@@ -127,6 +128,13 @@ struct AnalyzeFoodView: View {
                 }
 
                 VStack(spacing: 14) {
+                    choiceCard(
+                        title: "Search Foods",
+                        subtitle: "Look up any food's nutrition, or re-add foods and meals you've logged before.",
+                        symbol: "magnifyingglass",
+                        tint: Theme.sage
+                    ) { showingSearch = true }
+
                     if cameraAvailable {
                         choiceCard(
                             title: "Snap a Photo",
@@ -143,7 +151,7 @@ struct AnalyzeFoodView: View {
                             title: "Choose a Photo",
                             subtitle: "Analyze a picture of food from your library.",
                             symbol: "photo.on.rectangle.angled",
-                            tint: Theme.sage
+                            tint: Color(red: 0.45, green: 0.40, blue: 0.70)
                         )
                     }
                     .buttonStyle(.plain)
@@ -172,6 +180,9 @@ struct AnalyzeFoodView: View {
             .padding(.vertical, 12)
         }
         .sheet(isPresented: $showingDescribe) { describeSheet }
+        .sheet(isPresented: $showingSearch) {
+            FoodSearchView(logDate: logDate, initialMealType: mealType)
+        }
     }
 
     private var suggestionsSection: some View {

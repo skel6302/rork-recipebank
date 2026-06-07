@@ -28,6 +28,7 @@ struct CalorieTrackerView: View {
     @State private var addMealType: MealType = MealType.suggested()
     @State private var showingGoals = false
     @State private var showingWeight = false
+    @State private var showingDatePicker = false
     @State private var editingEntry: FoodEntry?
     @State private var health = HealthManager()
 
@@ -82,6 +83,7 @@ struct CalorieTrackerView: View {
                 Theme.paper.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 20) {
+                        dateHeader
                         weekStrip
                         streakBanner
                         if isDayClosed { closedBanner }
@@ -122,6 +124,9 @@ struct CalorieTrackerView: View {
             .sheet(isPresented: $showingWeight) {
                 weightSheet
             }
+            .sheet(isPresented: $showingDatePicker) {
+                datePickerSheet
+            }
             .sheet(item: $editingEntry) { entry in
                 FoodEntryEditView(entry: entry)
             }
@@ -138,6 +143,120 @@ struct CalorieTrackerView: View {
                 Task { await health.refresh(for: newValue) }
             }
         }
+        .tint(Theme.spice)
+    }
+
+    // MARK: - Date navigation
+
+    private var dateHeader: some View {
+        HStack(spacing: 10) {
+            Button {
+                shiftDay(by: -1)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Theme.spice)
+                    .frame(width: 40, height: 40)
+                    .background(Theme.paperRaised, in: .circle)
+                    .overlay(Circle().stroke(Theme.ink.opacity(0.06), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                showingDatePicker = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text(headerDateLabel)
+                        .font(.system(size: 16, weight: .bold))
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.inkSoft)
+                }
+                .foregroundStyle(Theme.ink)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Theme.paperRaised, in: .capsule)
+                .overlay(Capsule().stroke(Theme.ink.opacity(0.06), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                shiftDay(by: 1)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(canGoForward ? Theme.spice : Theme.inkSoft.opacity(0.3))
+                    .frame(width: 40, height: 40)
+                    .background(Theme.paperRaised, in: .circle)
+                    .overlay(Circle().stroke(Theme.ink.opacity(0.06), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canGoForward)
+        }
+    }
+
+    private var headerDateLabel: String {
+        if Calendar.current.isDateInToday(selectedDate) { return "Today" }
+        if Calendar.current.isDateInYesterday(selectedDate) { return "Yesterday" }
+        let f = DateFormatter()
+        f.dateFormat = "EEE, MMM d"
+        return f.string(from: selectedDate)
+    }
+
+    private var canGoForward: Bool {
+        !Calendar.current.isDateInToday(selectedDate)
+            && selectedDate < Calendar.current.startOfDay(for: .now)
+    }
+
+    private func shiftDay(by days: Int) {
+        let cal = Calendar.current
+        guard let next = cal.date(byAdding: .day, value: days, to: selectedDate) else { return }
+        if days > 0, next > Date() { return }
+        withAnimation(.snappy) { selectedDate = next }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private var datePickerSheet: some View {
+        NavigationStack {
+            ZStack {
+                Theme.paper.ignoresSafeArea()
+                VStack(spacing: 16) {
+                    DatePicker(
+                        "Log date",
+                        selection: $selectedDate,
+                        in: ...Date(),
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.graphical)
+                    .tint(Theme.spice)
+                    .padding(16)
+                    .background(Theme.paperRaised, in: .rect(cornerRadius: 22))
+                    .overlay(RoundedRectangle(cornerRadius: 22).stroke(Theme.ink.opacity(0.06), lineWidth: 1))
+
+                    Button {
+                        withAnimation(.snappy) { selectedDate = .now }
+                    } label: {
+                        Label("Jump to Today", systemImage: "arrow.uturn.backward")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(Theme.spice)
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                }
+                .padding(20)
+            }
+            .navigationTitle("Pick a Day")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showingDatePicker = false }
+                        .fontWeight(.bold)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
         .tint(Theme.spice)
     }
 
@@ -266,7 +385,15 @@ struct CalorieTrackerView: View {
     }
 
     private var macrosCard: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Macronutrients")
+                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .foregroundStyle(Theme.ink)
+                Spacer()
+            }
+            MacroBreakdown(protein: protein, carbs: carbs, fat: fat)
+            Divider().background(Theme.ink.opacity(0.06))
             MacroBar(label: "Protein", grams: protein, goal: Double(proteinGoal), tint: Theme.sage)
             MacroBar(label: "Carbs", grams: carbs, goal: Double(carbGoal), tint: Theme.amber)
             MacroBar(label: "Fat", grams: fat, goal: Double(fatGoal), tint: Theme.spice)
