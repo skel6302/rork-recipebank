@@ -110,5 +110,5 @@ private struct SharedLink: Identifiable {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Recipe.self, Ingredient.self, ShoppingItem.self, FoodEntry.self, PlannedMeal.self], inMemory: true)
+        .modelContainer(for: [Recipe.self, Ingredient.self, ShoppingItem.self, FoodEntry.self, PlannedMeal.self, Medication.self, DoseLog.self], inMemory: true)
 }

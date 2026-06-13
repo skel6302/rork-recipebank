@@ -36,3 +36,40 @@ turn that plan into a shopping list in one tap.
 - **Recipe picker sheet** — a two-tab sheet (Recipes / Foods) for filling a slot with
   a saved recipe or a searched food item.
 - **Shopping tab** — unchanged, now also fed by the weekly plan.
+
+---
+
+# GLP-1 medication tracking & education
+
+## What this adds
+
+A new "Meds" tab for tracking GLP-1 medications (pill and shot) plus a bundled
+education guide on what to eat, what to avoid, and managing side effects.
+
+## Features
+
+- **Medication tracking** — add Ozempic, Wegovy, Mounjaro, Zepbound, Trulicity,
+  Saxenda, Rybelsus (quick presets) or any custom pill/shot, with dose (mg),
+  weekly or daily schedule, and dose day.
+- **Next-dose countdown** — each medication card shows when the next dose is due
+  ("Tomorrow", "In 3 days") and turns to "Due now" when it's time.
+- **One-tap dose logging** — record a dose with time, amount, and notes.
+- **Injection-site rotation** — for shots, a site picker (abdomen / thigh / arm,
+  left & right) that auto-suggests the next rotation site to avoid reuse.
+- **Dose reminders** — optional local notifications at the chosen day/time.
+- **Recent dose history** — a running list of logged doses across medications.
+- **GLP-1 Guide** — bundled education cards: Eat more of, Go easy on, Managing
+  side effects, and Smart habits, with tap-to-expand tips.
+
+## Design
+
+- Matches the warm cookbook aesthetic: paper background, spice/sage accents,
+  serif headings, rounded cards and a floating warm-gradient add button.
+- Includes a clear "not medical advice" disclaimer.
+
+## Screens
+
+- **Meds tab** — medication cards, recent doses, and a link to the guide (new).
+- **Add/Edit medication sheet** — presets, dose, schedule, reminder time (new).
+- **Log dose sheet** — time, amount, injection-site picker, notes (new).
+- **GLP-1 Guide sheet** — curated education content (new).
