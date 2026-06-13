@@ -17,6 +17,45 @@ import UIKit
 nonisolated enum AIRecipeParser {
     private static let model = "google/gemini-2.5-flash"
 
+    /// System prompt for turning a social-video post (TikTok/Instagram/YouTube)
+    /// into a structured recipe. The signal is the caption/description plus any
+    /// spoken transcript — these posts pack the recipe into the caption, so we
+    /// lean on it heavily and only infer what's clearly implied.
+    private static let postSystemPrompt = """
+    You turn a short cooking video's post text (its title, caption/description, and \
+    optional spoken transcript) into a clean, structured recipe.
+
+    Rules:
+    - Use the caption and transcript as the source of truth. Recipe creators usually \
+    write the full ingredient list and method in the caption. Combine signals from the \
+    title, caption, and transcript.
+    - Extract ONLY the recipe. Ignore hashtags, @mentions, emojis used as decoration, \
+    "follow for more", links, promo codes, affiliate notes, and engagement bait.
+    - For each ingredient, give a concise name (singular, lowercase unless a proper \
+    noun) and a quantity. Combine quantity + unit into the \"quantity\" field \
+    (e.g. \"1 tbsp\", \"¼ cup\", \"2\"). Leave quantity empty if none is stated. Never \
+    put the quantity inside the name.
+    - Steps: write clear, ordered cooking instructions. If the caption lists numbered \
+    or bulleted steps, follow them. If the method is only described loosely in prose or \
+    transcript, rewrite it into concise ordered steps. Do NOT invent steps with no basis \
+    in the text.
+    - Title: the dish name. Clean it up from the post title/caption (drop hashtags and \
+    emojis). If unclear, use a short descriptive title.
+    - summary: one short appetizing sentence describing the dish, or empty string.
+    - If the text genuinely contains no recipe (e.g. it's just a caption with no food \
+    info), return empty ingredients and steps arrays.
+
+    Respond with ONLY a JSON object (no markdown, no code fences) in exactly this shape:
+    {
+      "title": "Dish name",
+      "summary": "one short sentence describing the dish, or empty string",
+      "ingredients": [
+        { "name": "ingredient name", "quantity": "1 tbsp" }
+      ],
+      "steps": ["step one", "step two"]
+    }
+    """
+
     private static let systemPrompt = """
     You read photos of recipes and return a clean, structured recipe. Sources include \
     handwritten cards, cookbook pages, and meal-kit cards (e.g. HelloFresh, Blue Apron).
@@ -124,9 +163,72 @@ nonisolated enum AIRecipeParser {
         )
     }
 
+    /// Reads a social-video post's text (title + caption + optional transcript) and
+    /// returns a structured recipe draft. Used by the "import from video link"
+    /// flow that pulls a TikTok/Instagram/YouTube post into the recipe book.
+    static func parse(
+        postTitle: String,
+        caption: String,
+        transcript: String = "",
+        sourceURL: String = ""
+    ) async throws -> ScannedRecipe {
+        var parts: [String] = []
+        let trimmedTitle = postTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedTitle.isEmpty { parts.append("POST TITLE:\n\(trimmedTitle)") }
+        if !trimmedCaption.isEmpty { parts.append("CAPTION / DESCRIPTION:\n\(trimmedCaption)") }
+        if !trimmedTranscript.isEmpty { parts.append("SPOKEN TRANSCRIPT:\n\(trimmedTranscript)") }
+
+        guard !parts.isEmpty else { throw ParseError.empty }
+
+        let prompt = """
+        Here is the text from a cooking video post. Turn it into the structured recipe JSON.
+
+        \(parts.joined(separator: "\n\n"))
+        """
+
+        let content: [[String: Any]] = [["type": "text", "text": prompt]]
+        let parsed = try await request(systemPrompt: postSystemPrompt, userContent: content)
+
+        let ingredients = parsed.ingredients
+            .map { item -> DraftIngredient in
+                let name = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                let quantity = (item.quantity ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                return DraftIngredient(name: name, quantity: quantity)
+            }
+            .filter { !$0.name.isEmpty }
+
+        let steps = parsed.steps
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard !ingredients.isEmpty || !steps.isEmpty else {
+            throw ParseError.empty
+        }
+
+        let title = parsed.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        var noteSummary = (parsed.summary ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if noteSummary.isEmpty, !sourceURL.isEmpty {
+            noteSummary = ""
+        }
+        return ScannedRecipe(
+            title: title.isEmpty ? "Imported Recipe" : title,
+            summary: noteSummary,
+            ingredients: ingredients.isEmpty ? [DraftIngredient()] : ingredients,
+            steps: steps.isEmpty ? [""] : steps,
+            rawText: "",
+            photoData: nil
+        )
+    }
+
     // MARK: - Networking
 
     private static func request(userContent: [[String: Any]]) async throws -> ParsedRecipe {
+        try await request(systemPrompt: systemPrompt, userContent: userContent)
+    }
+
+    private static func request(systemPrompt: String, userContent: [[String: Any]]) async throws -> ParsedRecipe {
         let toolkitURL = Config.EXPO_PUBLIC_TOOLKIT_URL
         let secret = Config.EXPO_PUBLIC_RORK_TOOLKIT_SECRET_KEY
         guard !toolkitURL.isEmpty, !secret.isEmpty,
@@ -140,7 +242,7 @@ nonisolated enum AIRecipeParser {
                 ["role": "system", "content": systemPrompt],
                 ["role": "user", "content": userContent],
             ],
-            "temperature": 0.1,
+            "temperature": 0.2,
         ]
 
         var req = URLRequest(url: url)

@@ -17,6 +17,7 @@ struct RecipeListView: View {
     @State private var showingFavoritesOnly: Bool = false
     @State private var showingAdd: Bool = false
     @State private var showingScanner: Bool = false
+    @State private var showingImportLink: Bool = false
     @State private var scanResult: ScannedRecipe?
     @State private var recipeToDelete: Recipe?
     @State private var showingAccount: Bool = false
@@ -98,8 +99,22 @@ struct RecipeListView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAdd = true
+                    Menu {
+                        Button {
+                            showingImportLink = true
+                        } label: {
+                            Label("Import from Video Link", systemImage: "play.rectangle.on.rectangle")
+                        }
+                        Button {
+                            showingScanner = true
+                        } label: {
+                            Label("Scan a Recipe", systemImage: "text.viewfinder")
+                        }
+                        Button {
+                            showingAdd = true
+                        } label: {
+                            Label("Add Manually", systemImage: "square.and.pencil")
+                        }
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .foregroundStyle(Theme.spice)
@@ -114,6 +129,11 @@ struct RecipeListView: View {
             }
             .sheet(isPresented: $showingScanner) {
                 ScanRecipeView { result in
+                    scanResult = result
+                }
+            }
+            .sheet(isPresented: $showingImportLink) {
+                ImportLinkView { result in
                     scanResult = result
                 }
             }

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		XXA23BE36FDCB2A188AD7AXX /* RecipeBoxShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = XXC74288F0144FFD7B2157XX /* RecipeBoxShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -24,13 +25,56 @@
 			remoteGlobalIDString = 105FC5792E9EAD3100EA8BCF;
 			remoteInfo = RecipeBox;
 		};
+		XX7340712B3105C0C8C8EAXX /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 105FC5722E9EAD3100EA8BCF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = XX91399CBC602EB31D838AXX;
+			remoteInfo = RecipeBoxShare;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		XXB527E1DC6563F4EAFC7EXX /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				XXA23BE36FDCB2A188AD7AXX /* RecipeBoxShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		105FC57A2E9EAD3100EA8BCF /* RecipeBox.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RecipeBox.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		105FC5892E9EAD3200EA8BCF /* RecipeBoxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecipeBoxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		105FC5932E9EAD3200EA8BCF /* RecipeBoxUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecipeBoxUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		XXC74288F0144FFD7B2157XX /* RecipeBoxShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RecipeBoxShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		XX9A97B8331ADAFB96EBB0XX /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = XX91399CBC602EB31D838AXX /* RecipeBoxShare */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		XXBAA8D9E9314790A68314XX /* RecipeBoxShare */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RecipeBoxShare;
+			sourceTree = "<group>";
+			exceptions = (
+				XX9A97B8331ADAFB96EBB0XX /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		105FC5772E9EAD3100EA8BCF /* Frameworks */ = {
@@ -48,6 +92,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		105FC5902E9EAD3200EA8BCF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		XX75B8358D2242CEB782C5XX /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -82,6 +133,7 @@
 				105FC58C2E9EAD3200EA8BCF /* RecipeBoxTests */,
 				105FC5962E9EAD3200EA8BCF /* RecipeBoxUITests */,
 				105FC57B2E9EAD3100EA8BCF /* Products */,
+				XXBAA8D9E9314790A68314XX /* RecipeBoxShare */,
 			);
 			sourceTree = "<group>";
 		};
@@ -91,6 +143,7 @@
 				105FC57A2E9EAD3100EA8BCF /* RecipeBox.app */,
 				105FC5892E9EAD3200EA8BCF /* RecipeBoxTests.xctest */,
 				105FC5932E9EAD3200EA8BCF /* RecipeBoxUITests.xctest */,
+				XXC74288F0144FFD7B2157XX /* RecipeBoxShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -105,10 +158,12 @@
 				105FC5762E9EAD3100EA8BCF /* Sources */,
 				105FC5772E9EAD3100EA8BCF /* Frameworks */,
 				105FC5782E9EAD3100EA8BCF /* Resources */,
+				XXB527E1DC6563F4EAFC7EXX /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				XX4EF7F2EEB93E74C6BFB5XX /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				105FC57C2E9EAD3100EA8BCF /* RecipeBox */,
@@ -166,6 +221,26 @@
 			productReference = 105FC5932E9EAD3200EA8BCF /* RecipeBoxUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		XX91399CBC602EB31D838AXX /* RecipeBoxShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = XX099A87D495EEDD4D058CXX /* Build configuration list for PBXNativeTarget "RecipeBoxShare" */;
+			buildPhases = (
+				XXE0FD6AFA7551401BFCEBXX /* Sources */,
+				XX75B8358D2242CEB782C5XX /* Frameworks */,
+				XX8DEE49FEB104205DDA8DXX /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RecipeBoxShare;
+			productName = RecipeBoxShare;
+			productReference = XXC74288F0144FFD7B2157XX /* RecipeBoxShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+			fileSystemSynchronizedGroups = (
+				XXBAA8D9E9314790A68314XX /* RecipeBoxShare */,
+			);
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -206,6 +281,7 @@
 				105FC5792E9EAD3100EA8BCF /* RecipeBox */,
 				105FC5882E9EAD3200EA8BCF /* RecipeBoxTests */,
 				105FC5922E9EAD3200EA8BCF /* RecipeBoxUITests */,
+				XX91399CBC602EB31D838AXX /* RecipeBoxShare */,
 			);
 		};
 /* End PBXProject section */
@@ -226,6 +302,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		105FC5912E9EAD3200EA8BCF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		XX8DEE49FEB104205DDA8DXX /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -256,6 +339,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		XXE0FD6AFA7551401BFCEBXX /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -268,6 +358,11 @@
 			isa = PBXTargetDependency;
 			target = 105FC5792E9EAD3100EA8BCF /* RecipeBox */;
 			targetProxy = 105FC5942E9EAD3200EA8BCF /* PBXContainerItemProxy */;
+		};
+		XX4EF7F2EEB93E74C6BFB5XX /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = XX91399CBC602EB31D838AXX /* RecipeBoxShare */;
+			targetProxy = XX7340712B3105C0C8C8EAXX /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -555,6 +650,52 @@
 			};
 			name = Release;
 		};
+		XX178DB4B1D7C6690679DAXX /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = RecipeBoxShare/RecipeBoxShare.entitlements;
+				PRODUCT_BUNDLE_IDENTIFIER = app.rork.ghaf572vbc9s69qm73bfp.recipeboxshare;
+				PRODUCT_NAME = RecipeBoxShare;
+				SWIFT_VERSION = 5.0;
+				SDKROOT = iphoneos;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RecipeBoxShare/Info.plist;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				MARKETING_VERSION = 1.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_NAME)";
+			};
+			name = Debug;
+		};
+		XXA16311DE2D83D1EF0F1CXX /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = RecipeBoxShare/RecipeBoxShare.entitlements;
+				PRODUCT_BUNDLE_IDENTIFIER = app.rork.ghaf572vbc9s69qm73bfp.recipeboxshare;
+				PRODUCT_NAME = RecipeBoxShare;
+				SWIFT_VERSION = 5.0;
+				SDKROOT = iphoneos;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RecipeBoxShare/Info.plist;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				MARKETING_VERSION = 1.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_NAME)";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -590,6 +731,15 @@
 			buildConfigurations = (
 				105FC5A42E9EAD3200EA8BCF /* Debug */,
 				105FC5A52E9EAD3200EA8BCF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		XX099A87D495EEDD4D058CXX /* Build configuration list for PBXNativeTarget "RecipeBoxShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				XX178DB4B1D7C6690679DAXX /* Debug */,
+				XXA16311DE2D83D1EF0F1CXX /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
