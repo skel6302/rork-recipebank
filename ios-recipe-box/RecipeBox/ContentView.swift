@@ -70,6 +70,11 @@ struct ContentView: View {
                     Label("Calories", systemImage: "flame.fill")
                 }
 
+            MedsView()
+                .tabItem {
+                    Label("Meds", systemImage: "cross.case.fill")
+                }
+
             ShoppingListView()
                 .tabItem {
                     Label("Shopping", systemImage: "cart.fill")
