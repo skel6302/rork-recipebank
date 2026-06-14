@@ -81,8 +81,12 @@ async function tryOEmbed(url: string, platform: string): Promise<Partial<Resolve
     const resp = await fetch(endpoint, { headers: { "User-Agent": BROWSER_UA } });
     if (!resp.ok) return null;
     const data = await resp.json();
+    // On TikTok/YouTube the oEmbed `title` field holds the full post caption
+    // (the most valuable signal for the recipe), so surface it as the caption too.
+    const oTitle = typeof data.title === "string" ? data.title : "";
     return {
-      title: typeof data.title === "string" ? data.title : "",
+      title: oTitle,
+      caption: oTitle,
       author: typeof data.author_name === "string" ? data.author_name : "",
     };
   } catch {
@@ -141,7 +145,7 @@ Deno.serve(async (req) => {
     const platform = platformFor(resolvedUrl);
 
     let title = metaContent(html, ["og:title", "twitter:title"]);
-    const caption = metaContent(html, [
+    let caption = metaContent(html, [
       "og:description",
       "twitter:description",
       "description",
@@ -153,12 +157,19 @@ Deno.serve(async (req) => {
       if (m) title = decodeEntities(m[1].trim());
     }
 
-    // Fill gaps via oEmbed (gives a clean title/author even when meta tags are stripped).
-    if (!title || !author) {
+    // Fill gaps via oEmbed. Social platforms (esp. TikTok) routinely strip og:
+    // meta tags for datacenter fetches, but their oEmbed JSON still returns the
+    // full caption — which is exactly the recipe text we need.
+    if (!caption || !title || !author) {
       const oembed = await tryOEmbed(resolvedUrl, platform);
       if (oembed) {
         if (!title && oembed.title) title = oembed.title;
         if (!author && oembed.author) author = oembed.author;
+        // Prefer the oEmbed caption when the page gave us little or nothing —
+        // it's usually far richer than a truncated og:description.
+        if (oembed.caption && oembed.caption.length > caption.length) {
+          caption = oembed.caption;
+        }
       }
     }
 
