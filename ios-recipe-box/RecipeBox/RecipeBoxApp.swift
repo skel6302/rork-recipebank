@@ -12,6 +12,7 @@ import SwiftData
 struct RecipeBoxApp: App {
     @State private var auth = AuthManager()
     @State private var sync: RecipeSyncService
+    @State private var subscriptions = SubscriptionStore()
 
     init() {
         let auth = AuthManager()
@@ -45,6 +46,7 @@ struct RecipeBoxApp: App {
             RootView()
                 .environment(auth)
                 .environment(sync)
+                .environment(subscriptions)
                 .onAppear {
                     SampleData.seedIfNeeded(sharedModelContainer.mainContext)
                     sync.attach(sharedModelContainer)

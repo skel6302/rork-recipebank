@@ -9,7 +9,10 @@ import SwiftUI
 struct AccountView: View {
     @Environment(AuthManager.self) private var auth
     @Environment(RecipeSyncService.self) private var sync
+    @Environment(SubscriptionStore.self) private var subscriptions
     @Environment(\.dismiss) private var dismiss
+
+    @State private var showingPaywall = false
 
     var body: some View {
         @Bindable var auth = auth
@@ -18,8 +21,10 @@ struct AccountView: View {
                 VStack(spacing: 24) {
                     if auth.user == nil {
                         guestCard
+                        planCard
                     } else {
                         profileCard
+                        planCard
                         syncCard
                         signOutButton
                     }
@@ -38,6 +43,9 @@ struct AccountView: View {
             }
         }
         .tint(Theme.spice)
+        .sheet(isPresented: $showingPaywall) {
+            PaywallView(highlightedTier: subscriptions.tier == .free ? .pro : subscriptions.tier)
+        }
         .alert("Sign-in Error", isPresented: $auth.showError) {
             Button("OK") { }
         } message: {
@@ -137,6 +145,41 @@ struct AccountView: View {
         let source = auth.user?.name?.isEmpty == false ? auth.user?.name : auth.user?.email
         guard let source, let first = source.first else { return "?" }
         return String(first).uppercased()
+    }
+
+    private var planCard: some View {
+        HStack(spacing: 14) {
+            Image(systemName: subscriptions.tier == .free ? "sparkles" : "crown.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(Theme.warmGradient, in: .circle)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(subscriptions.tier.displayName) plan")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                Text(subscriptions.tier == .free
+                     ? "Upgrade for meal planning, calories & GLP-1"
+                     : subscriptions.tier.tagline)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkSoft)
+            }
+            Spacer()
+            Button {
+                showingPaywall = true
+            } label: {
+                Text(subscriptions.tier == .free ? "Upgrade" : "Manage")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Theme.warmGradient, in: .capsule)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .background(Theme.paperRaised, in: .rect(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.ink.opacity(0.06), lineWidth: 1))
     }
 
     private var syncCard: some View {

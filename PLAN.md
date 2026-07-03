@@ -73,3 +73,37 @@ education guide on what to eat, what to avoid, and managing side effects.
 - **Add/Edit medication sheet** — presets, dose, schedule, reminder time (new).
 - **Log dose sheet** — time, amount, injection-site picker, notes (new).
 - **GLP-1 Guide sheet** — curated education content (new).
+
+---
+
+# GLP-1 tab & three-tier subscription
+
+## What this adds
+
+The Meds tab becomes a dedicated "GLP-1" tab (inspired by MeAgain) with weight
+progress, and the app gets a three-tier plan model.
+
+## Plans
+
+- **Basic (Free)** — recipe storage/import and the shopping list.
+- **Plus ($4.99/mo)** — Basic + weekly meal planner + calorie & macro tracking.
+- **Pro ($6.99/mo)** — everything, including the GLP-1 companion.
+
+## Features
+
+- **GLP-1 tab** — renamed from Meds, adds a Weight Progress card with start /
+  current / change stats, a trend chart, and quick weight logging.
+- **Locked tabs** — Plan, Calories, and GLP-1 show a polished unlock screen when
+  the current plan doesn't include them.
+- **Paywall** — plan picker with feature checklists, best-value badge, and a
+  Restore Purchases button; also reachable from Account ("Upgrade" / "Manage").
+- **Billing status** — plans currently unlock instantly in founder preview mode;
+  real App Store billing (RevenueCat) gets wired in once the account connection
+  issue is resolved, before public release.
+
+## Screens
+
+- **GLP-1 tab** — medication cards + weight progress (updated).
+- **Paywall sheet** — three plan cards with pricing (new).
+- **Locked feature screens** — per-tab upsell with feature bullets (new).
+- **Account sheet** — current plan card with Upgrade/Manage (updated).

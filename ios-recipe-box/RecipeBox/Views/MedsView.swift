@@ -5,18 +5,22 @@
 
 import SwiftUI
 import SwiftData
+import Charts
 
-/// The "Meds" tab — GLP-1 medication tracking with next-dose countdowns,
-/// one-tap dose logging, injection-site rotation, dose history, and a link to
-/// the GLP-1 education guide.
+/// The "GLP-1" tab — medication tracking with next-dose countdowns, one-tap
+/// dose logging, injection-site rotation, weight progress, dose history, and
+/// a link to the GLP-1 education guide.
 struct MedsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Medication.startedAt, order: .forward) private var medications: [Medication]
+    @Query(sort: \WeightEntry.loggedAt, order: .forward) private var weights: [WeightEntry]
 
     @State private var showingAddMed = false
     @State private var editingMed: Medication?
     @State private var loggingMed: Medication?
     @State private var showingGuide = false
+    @State private var showingWeightLog = false
+    @State private var weightInput = ""
 
     private var activeMeds: [Medication] {
         medications.filter { $0.isActive }
@@ -48,6 +52,7 @@ struct MedsView: View {
                                 )
                             }
                         }
+                        weightProgressCard
                         if !recentDoses.isEmpty {
                             historySection
                         }
@@ -60,7 +65,7 @@ struct MedsView: View {
 
                 addButton
             }
-            .navigationTitle("Meds")
+            .navigationTitle("GLP-1")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -85,6 +90,14 @@ struct MedsView: View {
             }
             .task {
                 _ = await DoseReminderScheduler.requestAuthorization()
+            }
+            .alert("Log Weight", isPresented: $showingWeightLog) {
+                TextField("Weight (lbs)", text: $weightInput)
+                    .keyboardType(.decimalPad)
+                Button("Save") { saveWeight() }
+                Button("Cancel", role: .cancel) { weightInput = "" }
+            } message: {
+                Text("Enter today's weight in pounds.")
             }
         }
         .tint(Theme.spice)
@@ -158,6 +171,127 @@ struct MedsView: View {
         .padding(.horizontal, 20)
         .background(Theme.paperRaised, in: .rect(cornerRadius: 22))
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(Theme.ink.opacity(0.06), lineWidth: 1))
+    }
+
+    // MARK: - Weight progress
+
+    private var weightProgressCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Image(systemName: "chart.line.downtrend.xyaxis")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.sage)
+                Text("Weight Progress")
+                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .foregroundStyle(Theme.ink)
+                Spacer()
+                Button {
+                    weightInput = ""
+                    showingWeightLog = true
+                } label: {
+                    Label("Log", systemImage: "plus")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Theme.sage, in: .capsule)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if weights.count >= 2, let first = weights.first, let last = weights.last {
+                HStack(spacing: 0) {
+                    weightStat(label: "Start", value: first.weightLbs)
+                    Spacer()
+                    weightStat(label: "Current", value: last.weightLbs)
+                    Spacer()
+                    changeStat(delta: last.weightLbs - first.weightLbs)
+                }
+
+                Chart(weights, id: \.loggedAt) { entry in
+                    LineMark(
+                        x: .value("Date", entry.loggedAt),
+                        y: .value("Weight", entry.weightLbs)
+                    )
+                    .foregroundStyle(Theme.sage)
+                    .interpolationMethod(.catmullRom)
+                    AreaMark(
+                        x: .value("Date", entry.loggedAt),
+                        y: .value("Weight", entry.weightLbs)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Theme.sage.opacity(0.25), Theme.sage.opacity(0.02)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .interpolationMethod(.catmullRom)
+                }
+                .chartYScale(domain: weightDomain)
+                .chartXAxis(.hidden)
+                .chartYAxis {
+                    AxisMarks(position: .trailing) { _ in
+                        AxisGridLine().foregroundStyle(Theme.ink.opacity(0.06))
+                        AxisValueLabel()
+                            .font(.system(size: 10))
+                            .foregroundStyle(Theme.inkSoft)
+                    }
+                }
+                .frame(height: 110)
+            } else {
+                Text("Log your weight as you go — you'll see your journey charted here after a couple of entries.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.inkSoft)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.paperRaised, in: .rect(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Theme.ink.opacity(0.06), lineWidth: 1))
+    }
+
+    private var weightDomain: ClosedRange<Double> {
+        let values = weights.map { $0.weightLbs }
+        let low = (values.min() ?? 0) - 4
+        let high = (values.max() ?? 100) + 4
+        return low...high
+    }
+
+    private func weightStat(label: String, value: Double) -> some View {
+        VStack(spacing: 2) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundStyle(Theme.inkSoft.opacity(0.7))
+            Text("\(value, specifier: "%.1f") lb")
+                .font(.system(size: 17, weight: .bold, design: .serif))
+                .foregroundStyle(Theme.ink)
+        }
+    }
+
+    private func changeStat(delta: Double) -> some View {
+        VStack(spacing: 2) {
+            Text("CHANGE")
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundStyle(Theme.inkSoft.opacity(0.7))
+            HStack(spacing: 3) {
+                Image(systemName: delta <= 0 ? "arrow.down" : "arrow.up")
+                    .font(.system(size: 12, weight: .bold))
+                Text("\(abs(delta), specifier: "%.1f") lb")
+                    .font(.system(size: 17, weight: .bold, design: .serif))
+            }
+            .foregroundStyle(delta <= 0 ? Theme.sage : Theme.spice)
+        }
+    }
+
+    private func saveWeight() {
+        let normalized = weightInput.replacingOccurrences(of: ",", with: ".")
+        guard let value = Double(normalized), value > 0, value < 1500 else {
+            weightInput = ""
+            return
+        }
+        modelContext.insert(WeightEntry(weightLbs: value))
+        weightInput = ""
     }
 
     // MARK: - History

@@ -49,6 +49,7 @@ struct RootView: View {
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(SubscriptionStore.self) private var subscriptions
 
     @State private var importLink: String?
     @State private var importDraft: ScannedRecipe?
@@ -60,20 +61,69 @@ struct ContentView: View {
                     Label("Recipes", systemImage: "book.closed.fill")
                 }
 
-            MealPlannerView()
-                .tabItem {
-                    Label("Plan", systemImage: "calendar")
+            Group {
+                if subscriptions.canUseMealPlanning {
+                    MealPlannerView()
+                } else {
+                    LockedFeatureView(
+                        title: "Meal Planner",
+                        symbol: "calendar",
+                        summary: "Plan your whole week of breakfasts, lunches and dinners, then send it to your shopping list in one tap.",
+                        bullets: [
+                            "Weekly planner with all seven days",
+                            "Fill slots from your recipes or a food database",
+                            "One-tap week-to-shopping-list",
+                        ],
+                        requiredTier: .plus
+                    )
                 }
+            }
+            .tabItem {
+                Label("Plan", systemImage: "calendar")
+            }
 
-            CalorieTrackerView()
-                .tabItem {
-                    Label("Calories", systemImage: "flame.fill")
+            Group {
+                if subscriptions.canUseCalorieTracking {
+                    CalorieTrackerView()
+                } else {
+                    LockedFeatureView(
+                        title: "Calorie Tracking",
+                        symbol: "flame.fill",
+                        summary: "Log meals, scan barcodes, and watch your daily calories and macros add up.",
+                        bullets: [
+                            "Daily calorie & macro tracking",
+                            "Barcode scanning and food search",
+                            "AI nutrition estimates for any meal",
+                        ],
+                        requiredTier: .plus
+                    )
                 }
+            }
+            .tabItem {
+                Label("Calories", systemImage: "flame.fill")
+            }
 
-            MedsView()
-                .tabItem {
-                    Label("Meds", systemImage: "cross.case.fill")
+            Group {
+                if subscriptions.canUseGLP1 {
+                    MedsView()
+                } else {
+                    LockedFeatureView(
+                        title: "GLP-1 Companion",
+                        symbol: "syringe.fill",
+                        summary: "Track Ozempic, Wegovy, Mounjaro, Zepbound and more — with dose reminders, site rotation and weight progress.",
+                        bullets: [
+                            "Dose tracking with next-dose countdowns",
+                            "Injection-site rotation & reminders",
+                            "Weight progress tracking",
+                            "GLP-1 nutrition & side-effects guide",
+                        ],
+                        requiredTier: .pro
+                    )
                 }
+            }
+            .tabItem {
+                Label("GLP-1", systemImage: "syringe.fill")
+            }
 
             ShoppingListView()
                 .tabItem {
@@ -115,5 +165,6 @@ private struct SharedLink: Identifiable {
 
 #Preview {
     ContentView()
+        .environment(SubscriptionStore())
         .modelContainer(for: [Recipe.self, Ingredient.self, ShoppingItem.self, FoodEntry.self, PlannedMeal.self, Medication.self, DoseLog.self], inMemory: true)
 }
