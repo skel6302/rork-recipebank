@@ -7,17 +7,26 @@
 
 import SwiftUI
 import SwiftData
+import RevenueCat
 
 @main
 struct RecipeBoxApp: App {
-    @State private var auth = AuthManager()
+    @State private var auth: AuthManager
     @State private var sync: RecipeSyncService
-    @State private var subscriptions = SubscriptionStore()
+    @State private var subscriptions: SubscriptionStore
 
     init() {
+        #if DEBUG
+        Purchases.logLevel = .debug
+        Purchases.configure(withAPIKey: Config.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY)
+        #else
+        Purchases.configure(withAPIKey: Config.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY)
+        #endif
+
         let auth = AuthManager()
         _auth = State(initialValue: auth)
         _sync = State(initialValue: RecipeSyncService(auth: auth))
+        _subscriptions = State(initialValue: SubscriptionStore())
     }
 
     var sharedModelContainer: ModelContainer = {

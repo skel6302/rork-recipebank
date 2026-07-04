@@ -5,66 +5,122 @@
 
 import Foundation
 import Observation
+import RevenueCat
 
-/// Holds the user's current plan and answers feature-gating questions.
+/// Holds the user's current plan, answers feature-gating questions, and runs
+/// real purchases through RevenueCat.
 ///
-/// Billing note: this store currently activates plans locally (founder
-/// preview mode) because the RevenueCat connection is still pending. The
-/// public surface (`activate`, `restore`, `tier`) is shaped so the RevenueCat
-/// SDK can be dropped in behind it without touching any views.
+/// The "RecipeBank Pro" entitlement (active on either the $5/mo or $30/yr
+/// subscription) maps to `SubscriptionTier.pro`; everything else is `.free`.
 @Observable
 final class SubscriptionStore {
-    private static let storageKey = "subscription.tier.v1"
+    /// RevenueCat entitlement identifier that unlocks all Pro features.
+    static let entitlementID = "RecipeBank Pro"
 
     /// The user's active plan.
-    private(set) var tier: SubscriptionTier
+    private(set) var tier: SubscriptionTier = .free
+
+    /// The $5/month package from the current offering.
+    private(set) var monthlyPackage: Package?
+
+    /// The $30/year package from the current offering.
+    private(set) var annualPackage: Package?
+
+    /// True while the offering (prices) is being fetched.
+    private(set) var isLoadingOfferings = false
+
+    /// True while a purchase is in flight.
+    private(set) var isPurchasing = false
+
+    /// User-facing error from the last purchase/restore/load attempt.
+    var errorMessage: String?
 
     init() {
-        if let raw = UserDefaults.standard.string(forKey: Self.storageKey),
-           let saved = SubscriptionTier(rawValue: raw) {
-            tier = saved
-        } else {
-            tier = .free
-        }
+        // Previews and tests may build this store before Purchases.configure
+        // runs in the app entry point — skip SDK work in that case.
+        guard Purchases.isConfigured else { return }
+        Task { await listenForCustomerInfo() }
+        Task { await loadOfferings() }
     }
 
     // MARK: - Feature gates
 
-    /// Plus and above: weekly meal planner.
-    var canUseMealPlanning: Bool { tier >= .plus }
+    /// Pro: weekly meal planner.
+    var canUseMealPlanning: Bool { tier >= .pro }
 
-    /// Plus and above: calorie & macro tracking.
-    var canUseCalorieTracking: Bool { tier >= .plus }
+    /// Pro: calorie & macro tracking.
+    var canUseCalorieTracking: Bool { tier >= .pro }
 
-    /// Pro only: GLP-1 tracking, reminders, and guide.
+    /// Pro: GLP-1 tracking, reminders, and guide.
     var canUseGLP1: Bool { tier >= .pro }
 
-    /// The cheapest tier that unlocks the given gated feature.
-    enum GatedFeature {
-        case mealPlanning
-        case calorieTracking
-        case glp1
+    // MARK: - Offerings
 
-        var requiredTier: SubscriptionTier {
-            switch self {
-            case .mealPlanning, .calorieTracking: return .plus
-            case .glp1: return .pro
-            }
+    /// Fetches the current offering so the paywall can show live prices.
+    func loadOfferings() async {
+        guard Purchases.isConfigured else { return }
+        isLoadingOfferings = true
+        defer { isLoadingOfferings = false }
+        do {
+            let offerings = try await Purchases.shared.offerings()
+            monthlyPackage = offerings.current?.monthly
+            annualPackage = offerings.current?.annual
+        } catch {
+            print("[SubscriptionStore] Failed to load offerings: \(error.localizedDescription)")
+            errorMessage = "Couldn't load plans. Check your connection and try again."
         }
     }
 
-    // MARK: - Plan changes
+    // MARK: - Purchases
 
-    /// Activates a plan. Currently a local unlock (no charge); will run a
-    /// RevenueCat purchase once billing is connected.
-    func activate(_ newTier: SubscriptionTier) {
-        tier = newTier
-        UserDefaults.standard.set(newTier.rawValue, forKey: Self.storageKey)
+    /// Runs a RevenueCat purchase for the given package. Entitlement state
+    /// updates immediately on success.
+    func purchase(_ package: Package) async {
+        guard !isPurchasing else { return }
+        isPurchasing = true
+        defer { isPurchasing = false }
+        do {
+            let result = try await Purchases.shared.purchase(package: package)
+            if !result.userCancelled {
+                apply(result.customerInfo)
+            }
+        } catch ErrorCode.purchaseCancelledError {
+            // User closed the payment sheet — not an error.
+        } catch ErrorCode.paymentPendingError {
+            // Awaiting approval / extra auth — not a failure.
+        } catch {
+            print("[SubscriptionStore] Purchase failed: \(error.localizedDescription)")
+            errorMessage = error.localizedDescription
+        }
     }
 
-    /// Restores previous purchases. Placeholder until billing is connected —
-    /// returns false meaning "nothing to restore".
+    /// Restores previous purchases. Returns true when a Pro subscription was
+    /// found and re-activated.
+    @discardableResult
     func restorePurchases() async -> Bool {
-        false
+        guard Purchases.isConfigured else { return false }
+        do {
+            let info = try await Purchases.shared.restorePurchases()
+            apply(info)
+            return tier == .pro
+        } catch {
+            print("[SubscriptionStore] Restore failed: \(error.localizedDescription)")
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    // MARK: - Entitlement sync
+
+    /// Streams customer-info updates (purchases, renewals, expirations) so the
+    /// plan stays correct across launches and devices.
+    private func listenForCustomerInfo() async {
+        for await info in Purchases.shared.customerInfoStream {
+            apply(info)
+        }
+    }
+
+    private func apply(_ info: CustomerInfo) {
+        tier = info.entitlements[Self.entitlementID]?.isActive == true ? .pro : .free
     }
 }

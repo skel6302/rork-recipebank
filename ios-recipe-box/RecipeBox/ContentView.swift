@@ -74,7 +74,7 @@ struct ContentView: View {
                             "Fill slots from your recipes or a food database",
                             "One-tap week-to-shopping-list",
                         ],
-                        requiredTier: .plus
+                        requiredTier: .pro
                     )
                 }
             }
@@ -95,7 +95,7 @@ struct ContentView: View {
                             "Barcode scanning and food search",
                             "AI nutrition estimates for any meal",
                         ],
-                        requiredTier: .plus
+                        requiredTier: .pro
                     )
                 }
             }

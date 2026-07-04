@@ -4,36 +4,39 @@
 //
 
 import SwiftUI
+import RevenueCat
 
-/// Three-tier plan picker (Basic / Plus / Pro) in the warm cookbook style.
-/// Selecting a plan activates it through `SubscriptionStore`.
+/// RecipeBank Pro paywall in the warm cookbook style. Offers the $5/month and
+/// $30/year subscriptions through RevenueCat and includes purchase restore.
 struct PaywallView: View {
     @Environment(SubscriptionStore.self) private var subscriptions
     @Environment(\.dismiss) private var dismiss
 
-    /// The tier to pre-select when the paywall opens (e.g. from a locked tab).
+    /// Kept for callers that pre-select a tier from a locked tab.
     var highlightedTier: SubscriptionTier = .pro
 
-    @State private var selectedTier: SubscriptionTier = .pro
-    @State private var showingRestoreAlert = false
-    @State private var justActivated = false
+    private enum BillingCycle {
+        case monthly
+        case yearly
+    }
+
+    @State private var cycle: BillingCycle = .yearly
+    @State private var showingNothingToRestore = false
+    @State private var justUnlocked = false
 
     var body: some View {
+        @Bindable var subscriptions = subscriptions
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
                     header
-                    ForEach(SubscriptionTier.allCases.reversed(), id: \.self) { tier in
-                        PlanCard(
-                            tier: tier,
-                            isSelected: selectedTier == tier,
-                            isCurrent: subscriptions.tier == tier
-                        ) {
-                            withAnimation(.spring(duration: 0.3)) {
-                                selectedTier = tier
-                            }
-                        }
+                    if subscriptions.tier == .pro {
+                        currentPlanCard
+                    } else {
+                        billingCards
                     }
+                    featureCard
+                    freePlanCard
                     footnote
                 }
                 .padding(.horizontal, 16)
@@ -42,7 +45,7 @@ struct PaywallView: View {
             }
             .background(Theme.paper.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) { ctaBar }
-            .navigationTitle("Plans")
+            .navigationTitle("RecipeBank Pro")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -53,13 +56,31 @@ struct PaywallView: View {
             }
         }
         .tint(Theme.spice)
-        .onAppear { selectedTier = highlightedTier }
-        .alert("Nothing to restore", isPresented: $showingRestoreAlert) {
+        .task {
+            if subscriptions.monthlyPackage == nil || subscriptions.annualPackage == nil {
+                await subscriptions.loadOfferings()
+            }
+        }
+        .onChange(of: subscriptions.tier) { _, newTier in
+            if newTier == .pro {
+                justUnlocked.toggle()
+                dismiss()
+            }
+        }
+        .alert("Nothing to restore", isPresented: $showingNothingToRestore) {
             Button("OK") { }
         } message: {
-            Text("Purchase restore becomes available once App Store billing is live.")
+            Text("We couldn't find a previous subscription for this Apple ID.")
         }
-        .sensoryFeedback(.success, trigger: justActivated)
+        .alert("Something went wrong", isPresented: .init(
+            get: { subscriptions.errorMessage != nil },
+            set: { if !$0 { subscriptions.errorMessage = nil } }
+        )) {
+            Button("OK") { subscriptions.errorMessage = nil }
+        } message: {
+            Text(subscriptions.errorMessage ?? "")
+        }
+        .sensoryFeedback(.success, trigger: justUnlocked)
     }
 
     // MARK: - Header
@@ -68,14 +89,14 @@ struct PaywallView: View {
         VStack(spacing: 10) {
             ZStack {
                 Circle().fill(Theme.warmGradient).frame(width: 64, height: 64)
-                Image(systemName: "fork.knife")
+                Image(systemName: "crown.fill")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(.white)
             }
             Text("Get more from RecipeBank")
                 .font(.cookbookSerif(24, weight: .bold))
                 .foregroundStyle(Theme.ink)
-            Text("From a free recipe box to a full GLP-1 companion — pick the plan that fits your journey.")
+            Text("Meal planning, calorie tracking, and the full GLP-1 companion — one simple plan.")
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.inkSoft)
                 .multilineTextAlignment(.center)
@@ -84,34 +105,160 @@ struct PaywallView: View {
         .padding(.vertical, 8)
     }
 
+    // MARK: - Billing options
+
+    private var billingCards: some View {
+        HStack(spacing: 12) {
+            BillingCard(
+                title: "Monthly",
+                price: monthlyPriceLabel,
+                per: "per month",
+                badge: nil,
+                isSelected: cycle == .monthly
+            ) {
+                withAnimation(.spring(duration: 0.3)) { cycle = .monthly }
+            }
+            BillingCard(
+                title: "Yearly",
+                price: yearlyPriceLabel,
+                per: "per year · $2.50/mo",
+                badge: "SAVE 50%",
+                isSelected: cycle == .yearly
+            ) {
+                withAnimation(.spring(duration: 0.3)) { cycle = .yearly }
+            }
+        }
+    }
+
+    private var monthlyPriceLabel: String {
+        subscriptions.monthlyPackage?.storeProduct.localizedPriceString ?? "$5.00"
+    }
+
+    private var yearlyPriceLabel: String {
+        subscriptions.annualPackage?.storeProduct.localizedPriceString ?? "$30.00"
+    }
+
+    private var selectedPackage: Package? {
+        cycle == .monthly ? subscriptions.monthlyPackage : subscriptions.annualPackage
+    }
+
+    private var currentPlanCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Theme.sage)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("You're on Pro")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                Text("Manage or cancel anytime in Settings → Apple ID → Subscriptions.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkSoft)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .background(Theme.sage.opacity(0.12), in: .rect(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.sage.opacity(0.4), lineWidth: 1))
+    }
+
+    // MARK: - Features
+
+    private var featureCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Everything in Pro")
+                .font(.cookbookSerif(18, weight: .bold))
+                .foregroundStyle(Theme.ink)
+            VStack(alignment: .leading, spacing: 9) {
+                ForEach(SubscriptionTier.pro.features, id: \.self) { feature in
+                    HStack(spacing: 9) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Theme.spice)
+                        Text(feature)
+                            .font(.system(size: 13.5))
+                            .foregroundStyle(Theme.ink)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.paperRaised, in: .rect(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.ink.opacity(0.06), lineWidth: 1))
+    }
+
+    private var freePlanCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Basic")
+                    .font(.cookbookSerif(16, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                Text("FREE FOREVER")
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundStyle(Theme.spiceDeep)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Theme.spice.opacity(0.14), in: .capsule)
+                Spacer()
+            }
+            VStack(alignment: .leading, spacing: 7) {
+                ForEach(SubscriptionTier.free.features, id: \.self) { feature in
+                    HStack(spacing: 9) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.sage)
+                        Text(feature)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.inkSoft)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.paperRaised.opacity(0.6), in: .rect(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.ink.opacity(0.05), lineWidth: 1))
+    }
+
     // MARK: - CTA
 
     private var ctaBar: some View {
         VStack(spacing: 10) {
-            Button {
-                subscriptions.activate(selectedTier)
-                justActivated.toggle()
-                dismiss()
-            } label: {
-                Text(ctaTitle)
-                    .font(.system(size: 17, weight: .bold))
+            if subscriptions.tier != .pro {
+                Button {
+                    guard let package = selectedPackage else { return }
+                    Task { await subscriptions.purchase(package) }
+                } label: {
+                    Group {
+                        if subscriptions.isPurchasing || subscriptions.isLoadingOfferings {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Text(ctaTitle)
+                                .font(.system(size: 17, weight: .bold))
+                        }
+                    }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
                     .background(
-                        subscriptions.tier == selectedTier
+                        selectedPackage == nil && !subscriptions.isLoadingOfferings
                             ? AnyShapeStyle(Theme.inkSoft.opacity(0.35))
                             : AnyShapeStyle(Theme.warmGradient),
                         in: .rect(cornerRadius: 16)
                     )
+                }
+                .buttonStyle(.plain)
+                .disabled(subscriptions.isPurchasing || subscriptions.isLoadingOfferings || selectedPackage == nil)
             }
-            .buttonStyle(.plain)
-            .disabled(subscriptions.tier == selectedTier)
 
             Button {
                 Task {
                     let restored = await subscriptions.restorePurchases()
-                    if !restored { showingRestoreAlert = true }
+                    if !restored && subscriptions.errorMessage == nil {
+                        showingNothingToRestore = true
+                    }
                 }
             } label: {
                 Text("Restore Purchases")
@@ -126,18 +273,13 @@ struct PaywallView: View {
     }
 
     private var ctaTitle: String {
-        if subscriptions.tier == selectedTier {
-            return "Current Plan"
-        }
-        switch selectedTier {
-        case .free: return "Switch to Basic (Free)"
-        case .plus: return "Continue with Plus · $4.99/mo"
-        case .pro: return "Continue with Pro · $6.99/mo"
-        }
+        cycle == .monthly
+            ? "Start Pro · \(monthlyPriceLabel)/month"
+            : "Start Pro · \(yearlyPriceLabel)/year"
     }
 
     private var footnote: some View {
-        Text("Founder preview: plans unlock instantly and you won't be charged. App Store billing switches on before public release. Subscriptions will renew monthly and can be cancelled anytime in Settings.")
+        Text("Payment is charged to your Apple ID at confirmation. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the period. Manage or cancel anytime in Settings.")
             .font(.system(size: 11))
             .foregroundStyle(Theme.inkSoft.opacity(0.8))
             .multilineTextAlignment(.center)
@@ -146,68 +288,44 @@ struct PaywallView: View {
     }
 }
 
-// MARK: - Plan card
+// MARK: - Billing card
 
-private struct PlanCard: View {
-    let tier: SubscriptionTier
+private struct BillingCard: View {
+    let title: String
+    let price: String
+    let per: String
+    let badge: String?
     let isSelected: Bool
-    let isCurrent: Bool
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 8) {
-                            Text(tier.displayName)
-                                .font(.cookbookSerif(20, weight: .bold))
-                                .foregroundStyle(Theme.ink)
-                            if tier == .pro {
-                                Text("BEST VALUE")
-                                    .font(.system(size: 9, weight: .heavy))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(Theme.sage, in: .capsule)
-                            }
-                            if isCurrent {
-                                Text("CURRENT")
-                                    .font(.system(size: 9, weight: .heavy))
-                                    .foregroundStyle(Theme.spiceDeep)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(Theme.spice.opacity(0.14), in: .capsule)
-                            }
-                        }
-                        Text(tier.tagline)
-                            .font(.system(size: 12))
-                            .foregroundStyle(Theme.inkSoft)
-                    }
-                    Spacer(minLength: 8)
-                    Text(tier.priceLabel)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(isSelected ? Theme.spice : Theme.ink)
-                }
-
-                VStack(alignment: .leading, spacing: 7) {
-                    ForEach(tier.features, id: \.self) { feature in
-                        HStack(spacing: 9) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(isSelected ? Theme.spice : Theme.sage)
-                            Text(feature)
-                                .font(.system(size: 13.5))
-                                .foregroundStyle(Theme.ink)
-                        }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                    if let badge {
+                        Text(badge)
+                            .font(.system(size: 8.5, weight: .heavy))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2.5)
+                            .background(Theme.sage, in: .capsule)
                     }
                 }
+                Text(price)
+                    .font(.cookbookSerif(24, weight: .bold))
+                    .foregroundStyle(isSelected ? Theme.spice : Theme.ink)
+                Text(per)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.inkSoft)
             }
-            .padding(16)
+            .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.paperRaised, in: .rect(cornerRadius: 20))
+            .background(Theme.paperRaised, in: .rect(cornerRadius: 18))
             .overlay(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 18)
                     .stroke(
                         isSelected ? Theme.spice : Theme.ink.opacity(0.06),
                         lineWidth: isSelected ? 2 : 1
