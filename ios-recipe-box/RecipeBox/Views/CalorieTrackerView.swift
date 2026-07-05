@@ -10,6 +10,8 @@ import SwiftData
 /// Apple Watch activity, weight and sleep. Days can be "closed out" to build a
 /// tracking streak, and past days can be back-filled until they're closed.
 struct CalorieTrackerView: View {
+    @Binding var healthSection: HealthSection
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \FoodEntry.loggedAt, order: .reverse) private var allEntries: [FoodEntry]
     @Query private var dailyLogs: [DailyLog]
@@ -83,6 +85,7 @@ struct CalorieTrackerView: View {
                 Theme.paper.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 20) {
+                        HealthSectionPicker(section: $healthSection)
                         dateHeader
                         weekStrip
                         streakBanner
@@ -967,6 +970,7 @@ struct CalorieTrackerView: View {
 }
 
 #Preview {
-    CalorieTrackerView()
+    CalorieTrackerView(healthSection: .constant(.calories))
+        .environment(SubscriptionStore())
         .modelContainer(for: [Recipe.self, Ingredient.self, ShoppingItem.self, FoodEntry.self, DailyLog.self, WeightEntry.self], inMemory: true)
 }

@@ -50,9 +50,11 @@ struct RootView: View {
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(SubscriptionStore.self) private var subscriptions
+    @Query private var recipes: [Recipe]
 
     @State private var importLink: String?
     @State private var importDraft: ScannedRecipe?
+    @State private var showingLimitPaywall = false
 
     var body: some View {
         TabView {
@@ -74,7 +76,7 @@ struct ContentView: View {
                             "Fill slots from your recipes or a food database",
                             "One-tap week-to-shopping-list",
                         ],
-                        requiredTier: .pro
+                        requiredTier: .plus
                     )
                 }
             }
@@ -84,45 +86,24 @@ struct ContentView: View {
 
             Group {
                 if subscriptions.canUseCalorieTracking {
-                    CalorieTrackerView()
+                    HealthView()
                 } else {
                     LockedFeatureView(
-                        title: "Calorie Tracking",
-                        symbol: "flame.fill",
-                        summary: "Log meals, scan barcodes, and watch your daily calories and macros add up.",
+                        title: "Health",
+                        symbol: "heart.fill",
+                        summary: "Calorie tracking and the GLP-1 companion, together in one tab. Log meals, scan barcodes, and watch your macros add up.",
                         bullets: [
                             "Daily calorie & macro tracking",
                             "Barcode scanning and food search",
                             "AI nutrition estimates for any meal",
+                            "GLP-1 tracking as a Pro bonus",
                         ],
-                        requiredTier: .pro
+                        requiredTier: .plus
                     )
                 }
             }
             .tabItem {
-                Label("Calories", systemImage: "flame.fill")
-            }
-
-            Group {
-                if subscriptions.canUseGLP1 {
-                    MedsView()
-                } else {
-                    LockedFeatureView(
-                        title: "GLP-1 Companion",
-                        symbol: "syringe.fill",
-                        summary: "Track Ozempic, Wegovy, Mounjaro, Zepbound and more — with dose reminders, site rotation and weight progress.",
-                        bullets: [
-                            "Dose tracking with next-dose countdowns",
-                            "Injection-site rotation & reminders",
-                            "Weight progress tracking",
-                            "GLP-1 nutrition & side-effects guide",
-                        ],
-                        requiredTier: .pro
-                    )
-                }
-            }
-            .tabItem {
-                Label("GLP-1", systemImage: "syringe.fill")
+                Label("Health", systemImage: "heart.fill")
             }
 
             ShoppingListView()
@@ -146,13 +127,22 @@ struct ContentView: View {
         .sheet(item: $importDraft) { draft in
             RecipeEditView(recipe: nil, prefill: draft)
         }
+        .sheet(isPresented: $showingLimitPaywall) {
+            PaywallView(highlightedTier: .plus)
+        }
     }
 
-    /// Picks up a link handed in by the Share Extension and opens the import flow.
+    /// Picks up a link handed in by the Share Extension and opens the import
+    /// flow — unless the free plan's recipe limit is already reached, in which
+    /// case the paywall is shown instead.
     private func checkSharedImport() {
         guard importLink == nil, importDraft == nil else { return }
         if let link = SharedImportInbox.takePendingLink() {
-            importLink = link
+            if subscriptions.canAddRecipe(currentCount: recipes.count) {
+                importLink = link
+            } else {
+                showingLimitPaywall = true
+            }
         }
     }
 }

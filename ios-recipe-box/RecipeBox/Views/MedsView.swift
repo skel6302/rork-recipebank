@@ -11,6 +11,8 @@ import Charts
 /// dose logging, injection-site rotation, weight progress, dose history, and
 /// a link to the GLP-1 education guide.
 struct MedsView: View {
+    @Binding var healthSection: HealthSection
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Medication.startedAt, order: .forward) private var medications: [Medication]
     @Query(sort: \WeightEntry.loggedAt, order: .forward) private var weights: [WeightEntry]
@@ -40,6 +42,7 @@ struct MedsView: View {
                 Theme.paper.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 20) {
+                        HealthSectionPicker(section: $healthSection)
                         guideBanner
                         if activeMeds.isEmpty {
                             emptyState
@@ -377,6 +380,7 @@ struct MedsView: View {
 }
 
 #Preview {
-    MedsView()
+    MedsView(healthSection: .constant(.glp1))
+        .environment(SubscriptionStore())
         .modelContainer(for: [Medication.self, DoseLog.self], inMemory: true)
 }

@@ -83,29 +83,60 @@ education guide on what to eat, what to avoid, and managing side effects.
 The Meds tab becomes a dedicated "GLP-1" tab (inspired by MeAgain) with weight
 progress, and the app gets real subscription billing through RevenueCat.
 
-## Plans
-
-- **Basic (Free)** — recipe storage/import and the shopping list.
-- **Pro ($5/mo or $30/yr)** — everything: weekly meal planner, calorie & macro
-  tracking, and the GLP-1 companion. Yearly saves 50%.
-
 ## Features
 
 - **GLP-1 tab** — renamed from Meds, adds a Weight Progress card with start /
   current / change stats, a trend chart, and quick weight logging.
-- **Locked tabs** — Plan, Calories, and GLP-1 show a polished unlock screen when
-  the current plan doesn't include them.
 - **Paywall** — monthly/yearly picker with live store prices, feature checklist,
   save-50% badge, and a Restore Purchases button; also reachable from Account
   ("Upgrade" / "Manage").
-- **Billing status** — real billing is live via RevenueCat: the "RecipeBank Pro"
-  entitlement is backed by `recipebank_monthly` ($5) and `recipebank_yearly`
-  ($30) products configured in the Test Store, iOS App Store, and Google Play
-  Store.
+
+---
+
+# Health tab & tiered subscriptions (Basic / Plus / Pro)
+
+## What this adds
+
+Calorie tracking and the GLP-1 companion merge into a single "Health" tab, and
+billing becomes a three-tier model with a 7-day free trial, configured in
+RevenueCat across the Test Store, iOS App Store, and Google Play Store.
+
+## Plans
+
+- **Basic (Free)** — up to 50 saved recipes, recipe import, and the grocery /
+  shopping list.
+- **Plus ($4.99/mo or $29.99/yr)** — unlimited recipe storage, the weekly meal
+  planner, and calorie & macro tracking.
+- **Pro ($6.99/mo or $39.99/yr)** — everything in Plus, with the GLP-1
+  companion (dose tracking, reminders, site rotation, weight progress, guide)
+  as the bonus feature.
+- **7-day free trial** — new subscribers try any paid plan free for a week.
+
+## Features
+
+- **Health tab** — one tab with a Calories / GLP-1 switcher. The GLP-1 section
+  shows a lock badge and an in-tab Pro upsell when the plan doesn't include it.
+- **50-recipe free limit** — the Recipes tab shows "x of 50 free recipes" and
+  adding/scanning/importing past the cap prompts an upgrade to Plus (including
+  imports from the share extension).
+- **Locked tabs** — Plan and Health show a polished unlock screen on the free
+  plan.
+- **Paywall** — monthly/yearly toggle with a save-50% badge, selectable Plus and
+  Pro cards with live store prices, trial-first wording ("Start My 7-Day Free
+  Trial"), a free-plan card, and Restore Purchases. Plus subscribers see an
+  "Upgrade to Pro" flow.
+- **Billing status** — RevenueCat is configured with `recipebank_plus_monthly`
+  / `recipebank_plus_yearly` ($4.99 / $29.99) and `recipebank_pro_monthly` /
+  `recipebank_pro_yearly` ($6.99 / $39.99) in all three stores, mapped to the
+  "RecipeBank Plus" and "RecipeBank Pro" entitlements (Pro products unlock
+  both). The 7-day trial still needs to be set as an introductory offer in App
+  Store Connect / Play Console when the products are created there.
 
 ## Screens
 
-- **GLP-1 tab** — medication cards + weight progress (updated).
-- **Paywall sheet** — Pro paywall with monthly/yearly options (new).
-- **Locked feature screens** — per-tab upsell with feature bullets (new).
-- **Account sheet** — current plan card with Upgrade/Manage (updated).
+- **Health tab** — Calories and GLP-1 sections behind a segmented switcher
+  (new, replaces the separate Calories and GLP-1 tabs).
+- **GLP-1 upsell** — in-tab Pro pitch when GLP-1 is locked (new).
+- **Paywall sheet** — two-tier paywall with trial messaging (updated).
+- **Recipes tab** — free-plan counter and limit prompts (updated).
+- **Account sheet** — plan card with tier-aware Upgrade/Manage (updated).

@@ -10,6 +10,7 @@ import SwiftData
 struct RecipeListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(RecipeSyncService.self) private var sync
+    @Environment(SubscriptionStore.self) private var subscriptions
     @Query(sort: \Recipe.createdAt, order: .reverse) private var recipes: [Recipe]
 
     @State private var searchText: String = ""
@@ -21,6 +22,8 @@ struct RecipeListView: View {
     @State private var scanResult: ScannedRecipe?
     @State private var recipeToDelete: Recipe?
     @State private var showingAccount: Bool = false
+    @State private var showingLimitAlert: Bool = false
+    @State private var showingLimitPaywall: Bool = false
 
     private let columns = [
         GridItem(.flexible(), spacing: 14),
@@ -92,7 +95,7 @@ struct RecipeListView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        showingScanner = true
+                        requireCapacity { showingScanner = true }
                     } label: {
                         Image(systemName: "text.viewfinder")
                             .foregroundStyle(Theme.spice)
@@ -101,17 +104,17 @@ struct RecipeListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
-                            showingImportLink = true
+                            requireCapacity { showingImportLink = true }
                         } label: {
                             Label("Import from Video Link", systemImage: "play.rectangle.on.rectangle")
                         }
                         Button {
-                            showingScanner = true
+                            requireCapacity { showingScanner = true }
                         } label: {
                             Label("Scan a Recipe", systemImage: "text.viewfinder")
                         }
                         Button {
-                            showingAdd = true
+                            requireCapacity { showingAdd = true }
                         } label: {
                             Label("Add Manually", systemImage: "square.and.pencil")
                         }
@@ -142,6 +145,15 @@ struct RecipeListView: View {
             }
             .sheet(isPresented: $showingAccount) {
                 AccountView()
+            }
+            .sheet(isPresented: $showingLimitPaywall) {
+                PaywallView(highlightedTier: .plus)
+            }
+            .alert("Recipe limit reached", isPresented: $showingLimitAlert) {
+                Button("See Plans") { showingLimitPaywall = true }
+                Button("Not Now", role: .cancel) { }
+            } message: {
+                Text("The free plan stores up to \(SubscriptionStore.freeRecipeLimit) recipes. Upgrade to Plus for unlimited recipe storage.")
             }
             .refreshable {
                 await sync.syncNow()
@@ -221,9 +233,25 @@ struct RecipeListView: View {
         }
     }
 
+    /// Runs `action` if the plan allows saving another recipe; otherwise shows
+    /// the upgrade prompt.
+    private func requireCapacity(_ action: () -> Void) {
+        if subscriptions.canAddRecipe(currentCount: recipes.count) {
+            action()
+        } else {
+            showingLimitAlert = true
+        }
+    }
+
     private var headerStats: some View {
         HStack(spacing: 12) {
-            statPill(count: recipes.count, label: "Recipes", symbol: "book.closed.fill")
+            statPill(
+                count: recipes.count,
+                label: subscriptions.tier == .free
+                    ? "of \(SubscriptionStore.freeRecipeLimit) free recipes"
+                    : "Recipes",
+                symbol: "book.closed.fill"
+            )
             statPill(count: recipes.filter { $0.isFavorite }.count, label: "Favorites", symbol: "heart.fill")
         }
         .padding(.horizontal, 16)
@@ -306,7 +334,7 @@ struct RecipeListView: View {
                 .multilineTextAlignment(.center)
             VStack(spacing: 10) {
                 Button {
-                    showingScanner = true
+                    requireCapacity { showingScanner = true }
                 } label: {
                     Label("Scan a Recipe", systemImage: "text.viewfinder")
                         .font(.system(size: 15, weight: .semibold))
@@ -317,7 +345,7 @@ struct RecipeListView: View {
                 }
                 .buttonStyle(.plain)
                 Button {
-                    showingAdd = true
+                    requireCapacity { showingAdd = true }
                 } label: {
                     Label("Add Manually", systemImage: "plus")
                         .font(.system(size: 15, weight: .semibold))

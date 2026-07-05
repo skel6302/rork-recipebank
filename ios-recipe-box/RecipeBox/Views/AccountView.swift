@@ -44,7 +44,7 @@ struct AccountView: View {
         }
         .tint(Theme.spice)
         .sheet(isPresented: $showingPaywall) {
-            PaywallView(highlightedTier: subscriptions.tier == .free ? .pro : subscriptions.tier)
+            PaywallView(highlightedTier: .pro)
         }
         .alert("Sign-in Error", isPresented: $auth.showError) {
             Button("OK") { }
@@ -158,9 +158,7 @@ struct AccountView: View {
                 Text("\(subscriptions.tier.displayName) plan")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.ink)
-                Text(subscriptions.tier == .free
-                     ? "Upgrade for meal planning, calories & GLP-1"
-                     : subscriptions.tier.tagline)
+                Text(planSubtitle)
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.inkSoft)
             }
@@ -168,7 +166,7 @@ struct AccountView: View {
             Button {
                 showingPaywall = true
             } label: {
-                Text(subscriptions.tier == .free ? "Upgrade" : "Manage")
+                Text(subscriptions.tier == .pro ? "Manage" : "Upgrade")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
@@ -180,6 +178,14 @@ struct AccountView: View {
         .padding(16)
         .background(Theme.paperRaised, in: .rect(cornerRadius: 18))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.ink.opacity(0.06), lineWidth: 1))
+    }
+
+    private var planSubtitle: String {
+        switch subscriptions.tier {
+        case .free: return "7 days free — meal planning, calories & GLP-1"
+        case .plus: return "Add the GLP-1 companion with Pro"
+        case .pro: return subscriptions.tier.tagline
+        }
     }
 
     private var syncCard: some View {

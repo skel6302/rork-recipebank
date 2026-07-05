@@ -10,21 +10,29 @@ import RevenueCat
 /// Holds the user's current plan, answers feature-gating questions, and runs
 /// real purchases through RevenueCat.
 ///
-/// The "RecipeBank Pro" entitlement (active on either the $5/mo or $30/yr
-/// subscription) maps to `SubscriptionTier.pro`; everything else is `.free`.
+/// The "RecipeBank Pro" entitlement maps to `.pro`, "RecipeBank Plus" maps to
+/// `.plus`, and everything else is `.free`. Pro products are attached to both
+/// entitlements in RevenueCat, so a Pro subscription activates Plus features
+/// automatically.
 @Observable
 final class SubscriptionStore {
-    /// RevenueCat entitlement identifier that unlocks all Pro features.
-    static let entitlementID = "RecipeBank Pro"
+    /// RevenueCat entitlement that unlocks meal planning + calorie tracking.
+    static let plusEntitlementID = "RecipeBank Plus"
+
+    /// RevenueCat entitlement that unlocks everything, including GLP-1.
+    static let proEntitlementID = "RecipeBank Pro"
+
+    /// Maximum number of stored recipes on the free plan.
+    static let freeRecipeLimit = 50
 
     /// The user's active plan.
     private(set) var tier: SubscriptionTier = .free
 
-    /// The $5/month package from the current offering.
-    private(set) var monthlyPackage: Package?
-
-    /// The $30/year package from the current offering.
-    private(set) var annualPackage: Package?
+    /// Packages from the current offering, keyed by paywall option.
+    private(set) var plusMonthlyPackage: Package?
+    private(set) var plusAnnualPackage: Package?
+    private(set) var proMonthlyPackage: Package?
+    private(set) var proAnnualPackage: Package?
 
     /// True while the offering (prices) is being fetched.
     private(set) var isLoadingOfferings = false
@@ -45,16 +53,33 @@ final class SubscriptionStore {
 
     // MARK: - Feature gates
 
-    /// Pro: weekly meal planner.
-    var canUseMealPlanning: Bool { tier >= .pro }
+    /// Plus and up: weekly meal planner.
+    var canUseMealPlanning: Bool { tier >= .plus }
 
-    /// Pro: calorie & macro tracking.
-    var canUseCalorieTracking: Bool { tier >= .pro }
+    /// Plus and up: calorie & macro tracking.
+    var canUseCalorieTracking: Bool { tier >= .plus }
 
-    /// Pro: GLP-1 tracking, reminders, and guide.
+    /// Pro only: GLP-1 tracking, reminders, and guide.
     var canUseGLP1: Bool { tier >= .pro }
 
+    /// Whether another recipe can be saved. Free users are capped at
+    /// `freeRecipeLimit`; paid plans are unlimited.
+    func canAddRecipe(currentCount: Int) -> Bool {
+        tier > .free || currentCount < Self.freeRecipeLimit
+    }
+
     // MARK: - Offerings
+
+    /// The package matching a paywall selection, if it has loaded.
+    func package(for tier: SubscriptionTier, cycle: BillingCycle) -> Package? {
+        switch (tier, cycle) {
+        case (.plus, .monthly): return plusMonthlyPackage
+        case (.plus, .yearly): return plusAnnualPackage
+        case (.pro, .monthly): return proMonthlyPackage
+        case (.pro, .yearly): return proAnnualPackage
+        default: return nil
+        }
+    }
 
     /// Fetches the current offering so the paywall can show live prices.
     func loadOfferings() async {
@@ -62,9 +87,11 @@ final class SubscriptionStore {
         isLoadingOfferings = true
         defer { isLoadingOfferings = false }
         do {
-            let offerings = try await Purchases.shared.offerings()
-            monthlyPackage = offerings.current?.monthly
-            annualPackage = offerings.current?.annual
+            let current = try await Purchases.shared.offerings().current
+            plusMonthlyPackage = current?.package(identifier: "plus_monthly")
+            plusAnnualPackage = current?.package(identifier: "plus_annual")
+            proMonthlyPackage = current?.package(identifier: "pro_monthly")
+            proAnnualPackage = current?.package(identifier: "pro_annual")
         } catch {
             print("[SubscriptionStore] Failed to load offerings: \(error.localizedDescription)")
             errorMessage = "Couldn't load plans. Check your connection and try again."
@@ -94,7 +121,7 @@ final class SubscriptionStore {
         }
     }
 
-    /// Restores previous purchases. Returns true when a Pro subscription was
+    /// Restores previous purchases. Returns true when a paid subscription was
     /// found and re-activated.
     @discardableResult
     func restorePurchases() async -> Bool {
@@ -102,7 +129,7 @@ final class SubscriptionStore {
         do {
             let info = try await Purchases.shared.restorePurchases()
             apply(info)
-            return tier == .pro
+            return tier > .free
         } catch {
             print("[SubscriptionStore] Restore failed: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
@@ -121,6 +148,12 @@ final class SubscriptionStore {
     }
 
     private func apply(_ info: CustomerInfo) {
-        tier = info.entitlements[Self.entitlementID]?.isActive == true ? .pro : .free
+        if info.entitlements[Self.proEntitlementID]?.isActive == true {
+            tier = .pro
+        } else if info.entitlements[Self.plusEntitlementID]?.isActive == true {
+            tier = .plus
+        } else {
+            tier = .free
+        }
     }
 }
