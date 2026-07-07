@@ -67,6 +67,144 @@ function platformFor(url: string): string {
   return "web";
 }
 
+/**
+ * Extracts a schema.org Recipe from JSON-LD blocks. Most recipe websites
+ * embed the full ingredient list and instructions here — far richer than the
+ * one-line og:description meta tag.
+ */
+function extractJsonLdRecipe(html: string): { title: string; text: string; author: string } | null {
+  const blocks = html.matchAll(
+    /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  );
+  for (const block of blocks) {
+    let data: unknown;
+    try {
+      data = JSON.parse(block[1]);
+    } catch {
+      continue;
+    }
+    const recipe = findRecipeNode(data);
+    if (!recipe) continue;
+
+    const name = typeof recipe.name === "string" ? recipe.name : "";
+    const description = typeof recipe.description === "string" ? recipe.description : "";
+    const ingredients = toStringArray(recipe.recipeIngredient ?? recipe.ingredients);
+    const steps = extractInstructions(recipe.recipeInstructions);
+    if (ingredients.length === 0 && steps.length === 0) continue;
+
+    const parts: string[] = [];
+    if (description) parts.push(description);
+    if (recipe.recipeYield) parts.push(`Servings: ${flattenYield(recipe.recipeYield)}`);
+    if (typeof recipe.totalTime === "string") parts.push(`Total time: ${recipe.totalTime}`);
+    if (ingredients.length > 0) {
+      parts.push("INGREDIENTS:\n" + ingredients.map((i) => `- ${i}`).join("\n"));
+    }
+    if (steps.length > 0) {
+      parts.push("INSTRUCTIONS:\n" + steps.map((s, i) => `${i + 1}. ${s}`).join("\n"));
+    }
+
+    let author = "";
+    const a = recipe.author;
+    if (typeof a === "string") author = a;
+    else if (a && typeof a === "object") {
+      const first = Array.isArray(a) ? a[0] : a;
+      if (first && typeof first.name === "string") author = first.name;
+    }
+
+    return { title: name, text: parts.join("\n\n"), author };
+  }
+  return null;
+}
+
+// deno-lint-ignore no-explicit-any
+function findRecipeNode(node: unknown): Record<string, any> | null {
+  if (!node || typeof node !== "object") return null;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findRecipeNode(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  // deno-lint-ignore no-explicit-any
+  const obj = node as Record<string, any>;
+  const type = obj["@type"];
+  const types = Array.isArray(type) ? type : [type];
+  if (types.includes("Recipe")) return obj;
+  if (obj["@graph"]) return findRecipeNode(obj["@graph"]);
+  return null;
+}
+
+function toStringArray(value: unknown): string[] {
+  if (typeof value === "string") return [decodeEntities(value.trim())].filter(Boolean);
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => (typeof v === "string" ? decodeEntities(v.trim()) : ""))
+    .filter(Boolean);
+}
+
+/** recipeInstructions may be a string, string[], HowToStep[], or HowToSection[]. */
+function extractInstructions(value: unknown): string[] {
+  const out: string[] = [];
+  const walk = (v: unknown) => {
+    if (!v) return;
+    if (typeof v === "string") {
+      const cleaned = decodeEntities(v.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+      if (cleaned) out.push(cleaned);
+      return;
+    }
+    if (Array.isArray(v)) {
+      v.forEach(walk);
+      return;
+    }
+    if (typeof v === "object") {
+      // deno-lint-ignore no-explicit-any
+      const obj = v as Record<string, any>;
+      if (typeof obj.text === "string") walk(obj.text);
+      else if (obj.itemListElement) walk(obj.itemListElement);
+      else if (typeof obj.name === "string") walk(obj.name);
+    }
+  };
+  walk(value);
+  return out;
+}
+
+function flattenYield(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map(flattenYield).filter(Boolean).join(" / ");
+  return "";
+}
+
+/**
+ * Strips a web page down to its readable text so the AI parser can find the
+ * recipe even when the site has no structured data. Prefers <article>/<main>
+ * content and caps the size to keep the AI prompt sane.
+ */
+function extractPageText(html: string, maxChars = 15000): string {
+  let scoped = html;
+  const article = html.match(/<article[\s\S]*?<\/article>/i);
+  const main = html.match(/<main[\s\S]*?<\/main>/i);
+  if (article && article[0].length > 1500) scoped = article[0];
+  else if (main && main[0].length > 1500) scoped = main[0];
+
+  const text = scoped
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+    .replace(/<(?:nav|header|footer)[\s\S]*?<\/(?:nav|header|footer)>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|li|h1|h2|h3|h4|div|tr)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .split("\n")
+    .map((line) => decodeEntities(line).replace(/[ \t]+/g, " ").trim())
+    .filter((line) => line.length > 0)
+    .join("\n");
+
+  return text.length > maxChars ? text.slice(0, maxChars) : text;
+}
+
 /** Tries the platform oEmbed endpoint, which returns clean JSON metadata. */
 async function tryOEmbed(url: string, platform: string): Promise<Partial<ResolvedPost> | null> {
   let endpoint: string | null = null;
@@ -155,6 +293,23 @@ Deno.serve(async (req) => {
     if (!title) {
       const m = html.match(/<title[^>]*>([^<]*)<\/title>/i);
       if (m) title = decodeEntities(m[1].trim());
+    }
+
+    // Web pages: og:description is usually a one-line marketing blurb with no
+    // ingredients or steps. Pull the real recipe from schema.org JSON-LD when
+    // present, otherwise fall back to the readable article text.
+    if (platform === "web" || platform === "pinterest" || platform === "facebook") {
+      const jsonLd = extractJsonLdRecipe(html);
+      if (jsonLd) {
+        if (jsonLd.title) title = jsonLd.title;
+        if (jsonLd.author) author = jsonLd.author;
+        caption = jsonLd.text;
+      } else if (html.length > 0) {
+        const pageText = extractPageText(html);
+        if (pageText.length > caption.length) {
+          caption = caption ? `${caption}\n\nPAGE TEXT:\n${pageText}` : pageText;
+        }
+      }
     }
 
     // Fill gaps via oEmbed. Social platforms (esp. TikTok) routinely strip og:

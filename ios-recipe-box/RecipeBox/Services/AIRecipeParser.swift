@@ -22,15 +22,20 @@ nonisolated enum AIRecipeParser {
     /// spoken transcript — these posts pack the recipe into the caption, so we
     /// lean on it heavily and only infer what's clearly implied.
     private static let postSystemPrompt = """
-    You turn a short cooking video's post text (its title, caption/description, and \
-    optional spoken transcript) into a clean, structured recipe.
+    You turn the text of a cooking post — a short video's title/caption/transcript, \
+    OR a recipe webpage's extracted text — into a clean, structured recipe.
 
     Rules:
-    - Use the caption and transcript as the source of truth. Recipe creators usually \
-    write the full ingredient list and method in the caption. Combine signals from the \
+    - Use the caption/page text and transcript as the source of truth. Recipe creators \
+    usually write the full ingredient list and method there. Combine signals from the \
     title, caption, and transcript.
     - Extract ONLY the recipe. Ignore hashtags, @mentions, emojis used as decoration, \
     "follow for more", links, promo codes, affiliate notes, and engagement bait.
+    - Webpage text may include site navigation menus, category lists, footer links, \
+    cookie notices, marketing copy, product promos, and "related recipes" — ignore all \
+    of that and extract only the single main recipe on the page.
+    - If the text contains an INGREDIENTS: or INSTRUCTIONS: block, treat those as the \
+    definitive ingredient list and method.
     - For each ingredient, give a concise name (singular, lowercase unless a proper \
     noun) and a quantity. Combine quantity + unit into the \"quantity\" field \
     (e.g. \"1 tbsp\", \"¼ cup\", \"2\"). Leave quantity empty if none is stated. Never \
